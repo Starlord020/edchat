@@ -1,7 +1,7 @@
 {
-  "name": "turkuaz-chat",
+  "name": "turkuaz-watch",
   "version": "1.0.0",
-  "description": "Render uyumlu turkuaz temalı chat uygulaması",
+  "description": "Senkronize video ve chat odası",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

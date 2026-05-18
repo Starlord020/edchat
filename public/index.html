@@ -3,27 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turkuaz Sohbet</title>
+    <title>Turkuaz İzleme Odası</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="login-container" class="container">
-        <h1>Turkuaz Chat'e Hoş Geldiniz</h1>
-        <input type="text" id="username" placeholder="Kullanıcı adınızı girin..." autocomplete="off">
-        <button id="join-btn">Sohbete Katıl</button>
-    </div>
-
-    <div id="chat-container" class="container hidden">
-        <div class="chat-header">
-            <h2>Turkuaz Odası</h2>
-        </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <div class="chat-input-container">
-            <input type="text" id="msg-input" placeholder="Mesajınızı yazın..." autocomplete="off">
-            <button id="send-btn">Gönder</button>
+    
+    <div id="login-screen" class="screen">
+        <div class="login-box">
+            <h1>Turkuaz Odası</h1>
+            <input type="text" id="username" placeholder="Kullanıcı adınızı girin..." autocomplete="off">
+            <button id="join-btn">Odaya Katıl</button>
         </div>
     </div>
 
+    <div id="main-screen" class="screen hidden">
+        <div class="header">
+            <h2>Turkuaz İzleme Odası</h2>
+        </div>
+        
+        <div class="content-wrapper">
+            <div class="video-section">
+                <div class="video-controls">
+                    <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">
+                    <button id="load-btn">Aç</button>
+                </div>
+                <div class="player-wrapper">
+                    <div id="player"></div>
+                </div>
+            </div>
+
+            <div class="chat-section">
+                <div id="chat-messages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="msg-input" placeholder="Mesaj yazın..." autocomplete="off">
+                    <button id="send-btn">Gönder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
