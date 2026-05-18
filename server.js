@@ -9,67 +9,83 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Odaları hafızada tutacağımız obje
-// Örnek: rooms['12345'] = { password: 'abc', videoId: '...', time: 0, isPlaying: false }
 const rooms = {};
 
 io.on('connection', (socket) => {
     
     // 1. ODA OLUŞTURMA
     socket.on('createRoom', (password, callback) => {
-        const roomId = Math.random().toString(36).substring(2, 8); // Rastgele 6 haneli kod
+        const roomId = Math.random().toString(36).substring(2, 8);
         rooms[roomId] = {
             password: password,
-            videoId: 'dQw4w9WgXcQ', // Başlangıç videosu
+            videoId: 'dQw4w9WgXcQ', // Varsayılan video
             time: 0,
-            isPlaying: false
+            updatedAt: Date.now(),
+            isPlaying: false,
+            messages: [] 
         };
         callback(roomId);
     });
 
-    // 2. ODAYA KATILMA VE ŞİFRE KONTROLÜ
+    // 2. ODAYA KATILMA VE SENKRONİZASYON
     socket.on('joinRoom', ({ roomId, password, username }, callback) => {
         const room = rooms[roomId];
         
-        if (!room) {
-            return callback({ success: false, message: 'Böyle bir oda bulunamadı.' });
-        }
-        if (room.password !== password) {
-            return callback({ success: false, message: 'Hatalı şifre!' });
-        }
+        if (!room) return callback({ success: false, message: 'Böyle bir oda bulunamadı.' });
+        if (room.password !== password) return callback({ success: false, message: 'Hatalı şifre!' });
 
-        // Şifre doğruysa kullanıcıyı odaya al
         socket.join(roomId);
         socket.username = username;
         socket.roomId = roomId;
 
-        callback({ success: true, videoId: room.videoId, time: room.time, isPlaying: room.isPlaying });
+        let currentRealTime = room.time;
+        if (room.isPlaying) {
+            currentRealTime += (Date.now() - room.updatedAt) / 1000;
+        }
 
-        // Odadakilere haber ver
-        socket.to(roomId).emit('message', { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#00CED1' });
+        callback({ 
+            success: true, 
+            videoId: room.videoId, 
+            time: currentRealTime, 
+            isPlaying: room.isPlaying,
+            messages: room.messages 
+        });
+
+        const sysMsg = { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#00CED1' };
+        room.messages.push(sysMsg);
+        if(room.messages.length > 50) room.messages.shift();
+        socket.to(roomId).emit('message', sysMsg);
     });
 
     // 3. SOHBET
     socket.on('chatMessage', (msg) => {
-        if (socket.roomId) {
-            io.to(socket.roomId).emit('message', { user: socket.username, text: msg, color: '#40E0D0' });
+        if (socket.roomId && rooms[socket.roomId]) {
+            const msgData = { user: socket.username, text: msg, color: '#40E0D0' };
+            rooms[socket.roomId].messages.push(msgData);
+            if(rooms[socket.roomId].messages.length > 50) rooms[socket.roomId].messages.shift();
+            io.to(socket.roomId).emit('message', msgData);
         }
     });
 
-    // 4. VİDEO KONTROLLERİ (Sadece aynı odadakilere gider)
+    // 4. VİDEO KONTROLLERİ
     socket.on('loadVideo', (videoId) => {
         if (socket.roomId && rooms[socket.roomId]) {
             rooms[socket.roomId].videoId = videoId;
             rooms[socket.roomId].time = 0;
+            rooms[socket.roomId].updatedAt = Date.now();
             rooms[socket.roomId].isPlaying = true;
             io.to(socket.roomId).emit('videoChange', videoId);
-            io.to(socket.roomId).emit('message', { user: 'Sistem', text: `${socket.username} yeni video açtı.`, color: '#FF4500' });
+            
+            const sysMsg = { user: 'Sistem', text: `${socket.username} yeni video açtı.`, color: '#FF4500' };
+            rooms[socket.roomId].messages.push(sysMsg);
+            io.to(socket.roomId).emit('message', sysMsg);
         }
     });
 
     socket.on('playVideo', (time) => {
         if (socket.roomId && rooms[socket.roomId]) {
             rooms[socket.roomId].time = time;
+            rooms[socket.roomId].updatedAt = Date.now(); 
             rooms[socket.roomId].isPlaying = true;
             socket.to(socket.roomId).emit('videoPlay', time);
         }
@@ -78,14 +94,17 @@ io.on('connection', (socket) => {
     socket.on('pauseVideo', (time) => {
         if (socket.roomId && rooms[socket.roomId]) {
             rooms[socket.roomId].time = time;
+            rooms[socket.roomId].updatedAt = Date.now();
             rooms[socket.roomId].isPlaying = false;
             socket.to(socket.roomId).emit('videoPause');
         }
     });
 
     socket.on('disconnect', () => {
-        if (socket.username && socket.roomId) {
-            socket.to(socket.roomId).emit('message', { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' });
+        if (socket.username && socket.roomId && rooms[socket.roomId]) {
+            const sysMsg = { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' };
+            rooms[socket.roomId].messages.push(sysMsg);
+            socket.to(socket.roomId).emit('message', sysMsg);
         }
     });
 });

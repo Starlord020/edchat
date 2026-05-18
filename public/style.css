@@ -5,7 +5,7 @@
 body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden; }
 .hidden { display: none !important; }
 
-/* Ekranlar */
+/* Ekranlar & Glassmorphism Tema */
 #create-screen, #password-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: radial-gradient(circle at center, #112222 0%, #050a0a 100%); }
 .glass-box { background: rgba(10, 20, 20, 0.8); padding: 50px 40px; border-radius: 20px; border: 1px solid rgba(0, 206, 209, 0.3); box-shadow: 0 0 30px rgba(0, 206, 209, 0.15); text-align: center; width: 400px; }
 .lock-icon { font-size: 40px; margin-bottom: 10px; }
@@ -19,15 +19,14 @@ body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden;
 /* --- ANA EKRAN --- */
 #main-screen { display: flex; flex-direction: column; height: 100vh; }
 
-/* Header & YENİ Butonlar */
 .header { background: #0d1a1a; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1a3333; }
 .header h2 { margin: 0; }
 .header-controls { display: flex; gap: 10px; align-items: center; }
 
-/* Medya Kontrol Butonları */
+/* Butonlar */
 .control-btn { background: #00CED1; color: #0b1111; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
 .control-btn:hover { background: #40E0D0; }
-.control-btn.muted, .control-btn.camera-off { background: #ff4c4c; color: white; } /* Kapalıyken Kırmızı */
+.control-btn.muted, .control-btn.camera-off { background: #ff4c4c; color: white; } 
 .control-btn.muted:hover, .control-btn.camera-off:hover { background: #ff6666; }
 
 .outline-btn { background: transparent; border: 1px solid #00CED1; color: #00CED1; padding: 8px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; height: 40px; }
@@ -35,23 +34,38 @@ body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden;
 
 .content-wrapper { display: flex; flex: 1; overflow: hidden; }
 
-/* Video Alanı */
-.video-section { flex: 3; display: flex; flex-direction: column; padding: 20px; background: #050a0a; }
+/* Video Alanı (position: relative eklendi!) */
+.video-section { flex: 3; display: flex; flex-direction: column; padding: 20px; background: #050a0a; position: relative; }
 .video-controls { display: flex; gap: 10px; margin-bottom: 20px; }
 .video-controls input { flex: 1; padding: 12px 15px; border-radius: 8px; border: 1px solid #1a3333; outline: none; background: #0b1111; color: white;}
 .video-controls input:focus { border-color: #00CED1; }
 .video-controls button { padding: 12px 25px; background: #00CED1; color: #0b1111; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 .player-wrapper { flex: 1; width: 100%; background: black; border-radius: 15px; overflow: hidden; border: 1px solid #1a3333; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
 
-/* Sağ Panel (Kamera + Chat) */
+/* Sürüklenebilir Kamera Kutusu (PiP) */
+.user-camera-container { 
+    position: absolute; 
+    top: 80px; 
+    right: 30px; 
+    width: 200px; 
+    height: 130px; 
+    background: #000; 
+    border: 2px solid #00CED1; 
+    border-radius: 10px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    overflow: hidden; 
+    z-index: 1000; 
+    cursor: grab; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+}
+.user-camera-container:active { cursor: grabbing; } 
+#local-video { width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; }
+.camera-placeholder { color: #555; font-size: 14px; position: absolute; pointer-events: none; }
+
+/* Sağ Panel (Chat) */
 .side-panel { flex: 1; min-width: 300px; max-width: 400px; background: #0d1a1a; display: flex; flex-direction: column; border-left: 1px solid #1a3333; }
-
-/* YENİ: Kamera Alanı */
-.user-camera-container { height: 180px; background: #000; position: relative; border-bottom: 1px solid #1a3333; display: flex; justify-content: center; align-items: center; overflow: hidden;}
-#local-video { width: 100%; height: 100%; object-fit: cover; display: none; }
-.camera-placeholder { color: #555; font-size: 14px; position: absolute; }
-
-/* Sohbet Alanı */
 .chat-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .message { background: #132626; padding: 12px; border-radius: 10px; color: #e0e0e0; border-left: 3px solid #00CED1; font-size: 14px; }

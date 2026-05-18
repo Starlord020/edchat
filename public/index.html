@@ -40,6 +40,11 @@
         
         <div class="content-wrapper">
             <div class="video-section">
+                <div class="user-camera-container" id="draggable-cam">
+                    <video id="local-video" autoplay muted playsinline></video>
+                    <div class="camera-placeholder">Kamera Kapalı</div>
+                </div>
+
                 <div class="video-controls">
                     <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">
                     <button id="load-btn">Aç</button>
@@ -50,11 +55,6 @@
             </div>
 
             <div class="side-panel">
-                <div class="user-camera-container">
-                    <video id="local-video" autoplay muted playsinline></video>
-                    <div class="camera-placeholder">Kamera Kapalı</div>
-                </div>
-
                 <div class="chat-section">
                     <div id="chat-messages" class="chat-messages"></div>
                     <div class="chat-input">
