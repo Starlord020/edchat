@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background-color: #E0FFFF; /* Açık Turkuaz / Camgöbeği */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    background: white;
+    width: 400px;
+    max-width: 90%;
+    border-radius: 15px;
+    box-shadow: 0 8px 24px rgba(0, 206, 209, 0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#login-container {
+    padding: 40px 30px;
+    text-align: center;
+}
+
+#login-container h1 {
+    color: #008B8B;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+#login-container input, .chat-input-container input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #40E0D0;
+    border-radius: 8px;
+    outline: none;
+    font-size: 16px;
+}
+
+#login-container input {
+    margin-bottom: 15px;
+}
+
+.chat-input-container input {
+    border-radius: 20px;
+    padding-left: 15px;
+}
+
+#login-container button, .chat-input-container button {
+    background-color: #00CED1;
+    color: white;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#login-container button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.chat-input-container button {
+    padding: 0 20px;
+    margin-left: 10px;
+    border-radius: 20px;
+}
+
+#login-container button:hover, .chat-input-container button:hover {
+    background-color: #008B8B;
+}
+
+#chat-container {
+    height: 600px;
+}
+
+.chat-header {
+    background-color: #00CED1;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #F0FFFF;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.message {
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+    word-wrap: break-word;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-left: 4px solid #00CED1;
+}
+
+.message .meta {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.chat-input-container {
+    display: flex;
+    padding: 15px;
+    background: white;
+    border-top: 1px solid #E0FFFF;
+}
