@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turkuaz Sohbet</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="login-container" class="container">
+        <h1>Turkuaz Chat'e Hoş Geldiniz</h1>
+        <input type="text" id="username" placeholder="Kullanıcı adınızı girin..." autocomplete="off">
+        <button id="join-btn">Sohbete Katıl</button>
+    </div>
+
+    <div id="chat-container" class="container hidden">
+        <div class="chat-header">
+            <h2>Turkuaz Odası</h2>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-container">
+            <input type="text" id="msg-input" placeholder="Mesajınızı yazın..." autocomplete="off">
+            <button id="send-btn">Gönder</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
