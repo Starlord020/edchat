@@ -42,11 +42,22 @@ body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden;
 .video-controls button { padding: 12px 25px; background: #00CED1; color: #0b1111; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 .player-wrapper { flex: 1; width: 100%; background: black; border-radius: 15px; overflow: hidden; border: 1px solid #1a3333; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
 
-/* Sürüklenebilir Kamera Kutusu (PiP) */
-.user-camera-container { 
+/* YENİ: Kamera Kutuları Konteyneri */
+.camera-boxes-container { 
     position: absolute; 
     top: 80px; 
     right: 30px; 
+    display: flex; 
+    flex-direction: row-reverse; /* Kameraları sola doğru eklemek için */
+    gap: 15px; /* Kutular arası boşluk */
+    z-index: 1000; 
+    transition: opacity 0.3s ease; /* Konteyner gizlenirken yumuşak geçiş */
+}
+.camera-boxes-container.hidden { opacity: 0; pointer-events: none; } /* Gizliyken görünmez ve tıklanmaz */
+
+/* Kamera Kutusu Temel Stili */
+.camera-box { 
+    position: relative; /* İçindeki öğeleri konumlandırmak için */
     width: 200px; 
     height: 130px; 
     background: #000; 
@@ -56,12 +67,26 @@ body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden;
     justify-content: center; 
     align-items: center; 
     overflow: hidden; 
-    z-index: 1000; 
-    cursor: grab; 
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+    cursor: grab; /* Sürüklenebilir */
+    resize: both; /* Hem en hem boy boyutlandırılabilir */
+    min-width: 150px; /* Minimum boyutlar */
+    min-height: 100px; 
 }
-.user-camera-container:active { cursor: grabbing; } 
-#local-video { width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; }
+.camera-box:active { cursor: grabbing; } 
+
+/* Boyutlandırma Köşeleri Stili */
+.camera-box::-webkit-resizer { 
+    border-left: 20px solid transparent;
+    border-bottom: 20px solid transparent;
+    background-color: transparent;
+    cursor: nwse-resize; /* Boyutlandırma imleci */
+    margin-right: -2px; /* Köşeyi tam hizalamak için */
+    margin-bottom: -2px; 
+}
+
+/* Video ve Placeholder Stili */
+#local-video, .remote-video { width: 100%; height: 100%; object-fit: cover; display: none; pointer-events: none; }
 .camera-placeholder { color: #555; font-size: 14px; position: absolute; pointer-events: none; }
 
 /* Sağ Panel (Chat) */

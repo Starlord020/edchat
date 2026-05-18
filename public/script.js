@@ -156,15 +156,18 @@ socket.on('videoPause', () => {
     }
 });
 
-// --- MEDYA (KAMERA/MİKROFON) ---
+// --- YENİ: MEDYA (KAMERA/MİKROFON) VE KONTEYNER MANTIĞI ---
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
 const toggleCamBtn = document.getElementById('toggle-cam-btn');
+const cameraBoxesContainer = document.getElementById('camera-boxes-container');
+const localCameraBox = document.getElementById('local-camera-box');
 const localVideo = document.getElementById('local-video');
-const cameraPlaceholder = document.querySelector('.camera-placeholder');
+const localCameraPlaceholder = localCameraBox.querySelector('.camera-placeholder');
 
 let localStream = null;
 let isMicOn = false;
 let isCamOn = false;
+const activeRemoteCameras = new Set(); // Açık olan diğer kameraları takip et
 
 async function getMediaStream() {
     try {
@@ -172,8 +175,21 @@ async function getMediaStream() {
         localStream.getAudioTracks()[0].enabled = false;
         localStream.getVideoTracks()[0].enabled = false;
         localVideo.srcObject = localStream;
+        // Başlangıçta mikrofon ve kamera kapalı olduğundan ikonları kapalı başlat
+        toggleMicBtn.classList.add('muted');
+        toggleCamBtn.classList.add('camera-off');
     } catch (err) {
         console.error("Medya cihazlarına erişilemedi:", err);
+    }
+}
+
+// Konteynerın görünürlüğünü güncelle
+function updateCameraContainerVisibility() {
+    // Eğer yerel kamera açıksa veya en az bir diğer kamera açıksa konteyneri göster
+    if (isCamOn || activeRemoteCameras.size > 0) {
+        cameraBoxesContainer.classList.remove('hidden');
+    } else {
+        cameraBoxesContainer.classList.add('hidden');
     }
 }
 
@@ -198,45 +214,93 @@ toggleCamBtn.addEventListener('click', () => {
         toggleCamBtn.classList.remove('camera-off');
         toggleCamBtn.innerHTML = '<i class="fas fa-video"></i>';
         localVideo.style.display = 'block';
-        cameraPlaceholder.style.display = 'none';
+        localCameraPlaceholder.style.display = 'none';
+        updateCameraContainerVisibility();
     } else {
         toggleCamBtn.classList.add('camera-off');
         toggleCamBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
         localVideo.style.display = 'none';
-        cameraPlaceholder.style.display = 'block';
+        localCameraPlaceholder.style.display = 'block';
+        updateCameraContainerVisibility();
     }
 });
 
-window.addEventListener('load', getMediaStream);
-
-// --- SÜRÜKLE & BIRAK (KAMERA) ---
-const draggableCam = document.getElementById('draggable-cam');
+// --- SÜRÜKLE & BIRAK VE BOYUTLANDIRMA MANTIĞI ---
 const playerWrapper = document.querySelector('.player-wrapper');
-let isDragging = false;
-let offsetX = 0;
-let offsetY = 0;
 
-draggableCam.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    offsetX = e.clientX - draggableCam.getBoundingClientRect().left;
-    offsetY = e.clientY - draggableCam.getBoundingClientRect().top;
-    draggableCam.style.cursor = 'grabbing';
-    playerWrapper.style.pointerEvents = 'none'; 
+// Sürükle-bırak olaylarını `.camera-box` sınıfına sahip tüm öğeler için genelle
+document.addEventListener('mousedown', (e) => {
+    const draggableBox = e.target.closest('.camera-box');
+    if (!draggableBox) return;
+
+    // Boyutlandırma köşesinden tutulup tutulmadığını kontrol et
+    // Webkit tabanlı tarayıcılarda `::-webkit-resizer` tıklamasını yakalamak zordur,
+    // bu nedenle kutunun sağ/sol alt köşelerine tıklanıp tıklanmadığını kontrol edelim.
+    const rect = draggableBox.getBoundingClientRect();
+    const isResizing = (
+        (e.clientX >= rect.right - 20 && e.clientX <= rect.right + 20 && e.clientY >= rect.bottom - 20 && e.clientY <= rect.bottom + 20) || // Sağ alt
+        (e.clientX >= rect.left - 20 && e.clientX <= rect.left + 20 && e.clientY >= rect.bottom - 20 && e.clientY <= rect.bottom + 20) // Sol alt
+    );
+
+    if (!isResizing) {
+        draggableBox.isDragging = true;
+        draggableBox.offsetX = e.clientX - rect.left;
+        draggableBox.offsetY = e.clientY - rect.top;
+        draggableBox.style.cursor = 'grabbing';
+        playerWrapper.style.pointerEvents = 'none'; 
+    }
 });
 
 document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const parentRect = draggableCam.parentElement.getBoundingClientRect();
-    let newX = e.clientX - parentRect.left - offsetX;
-    let newY = e.clientY - parentRect.top - offsetY;
-    draggableCam.style.left = `${newX}px`;
-    draggableCam.style.top = `${newY}px`;
+    const draggableBox = [...document.querySelectorAll('.camera-box')].find(box => box.isDragging);
+    if (!draggableBox) return;
+
+    const parentRect = cameraBoxesContainer.getBoundingClientRect();
+    let newX = e.clientX - parentRect.left - draggableBox.offsetX;
+    let newY = e.clientY - parentRect.top - draggableBox.offsetY;
+
+    // Kutuyu yeni yerine taşı
+    // Konteyner flex olduğundan, sürüklenen kutunun konumunu manuel olarak ayarlamak için `position: absolute` kullanalım.
+    // Ancak, konteynerın flex yapısını korumak daha iyidir.
+    // Kutuyu sürüklemek için `transform: translate()` kullanalım.
+    // Bu, flex düzenini etkilemez.
+    // Sürüklenen kutunun transform değerlerini hesapla
+    const currentTransform = draggableBox.style.transform;
+    const transformMatch = currentTransform.match(/translate\(([-\d.]+)px, ([-\d.]+)px\)/);
+    const currentX = transformMatch ? parseFloat(transformMatch[1]) : 0;
+    const currentY = transformMatch ? parseFloat(transformMatch[2]) : 0;
+    
+    // Transform değerlerini güncelle
+    const deltaX = e.clientX - (draggableBox.getBoundingClientRect().left + draggableBox.offsetX);
+    const deltaY = e.clientY - (draggableBox.getBoundingClientRect().top + draggableBox.offsetY);
+    
+    // Kutuyu yeni transform değerleriyle taşı
+    draggableBox.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 });
 
 document.addEventListener('mouseup', () => {
-    if (isDragging) {
-        isDragging = false;
-        draggableCam.style.cursor = 'grab';
+    const draggableBox = [...document.querySelectorAll('.camera-box')].find(box => box.isDragging);
+    if (draggableBox) {
+        draggableBox.isDragging = false;
+        draggableBox.style.cursor = 'grab';
         playerWrapper.style.pointerEvents = 'auto';
     }
+});
+
+// Boyutlandırma olaylarını yakalamak için `ResizeObserver` kullanalım
+const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+        // Boyutlandırma bittiğinde video öğesini güncel tut
+        const video = entry.target.querySelector('video, .remote-video');
+        if (video) {
+            video.style.width = '100%';
+            video.style.height = '100%';
+        }
+    }
+});
+
+// Sayfa yüklendiğinde medya izinlerini iste ve yerel kamera kutusunu gözlemle
+window.addEventListener('load', () => {
+    getMediaStream();
+    resizeObserver.observe(localCameraBox);
 });
