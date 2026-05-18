@@ -8,17 +8,29 @@
 </head>
 <body>
     
-    <div id="login-screen" class="screen">
-        <div class="login-box">
-            <h1>Turkuaz Odası</h1>
-            <input type="text" id="username" placeholder="Kullanıcı adınızı girin..." autocomplete="off">
-            <button id="join-btn">Odaya Katıl</button>
+    <div id="create-screen" class="screen hidden">
+        <div class="glass-box">
+            <h1>Oda Oluştur</h1>
+            <p>Arkadaşlarınla izlemek için şifreli bir oda kur.</p>
+            <input type="text" id="new-room-pass" placeholder="Oda için bir şifre belirle..." autocomplete="off">
+            <button id="create-btn">Odayı Kur ve Linki Al</button>
+        </div>
+    </div>
+
+    <div id="password-screen" class="screen hidden">
+        <div class="glass-box">
+            <div class="lock-icon">🔒</div>
+            <h2 class="glow-text">Oda Güvenlik Şifresi</h2>
+            <input type="text" id="join-username" placeholder="Kullanıcı Adınız" autocomplete="off">
+            <input type="password" id="join-password" placeholder="Oda Şifresi" autocomplete="off">
+            <button id="join-btn">Odaya Gir</button>
         </div>
     </div>
 
     <div id="main-screen" class="screen hidden">
         <div class="header">
-            <h2>Turkuaz İzleme Odası</h2>
+            <h2 class="glow-text">Turkuaz Odası</h2>
+            <button id="copy-link-btn" class="outline-btn">Davet Linkini Kopyala</button>
         </div>
         
         <div class="content-wrapper">

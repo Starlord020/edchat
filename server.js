@@ -9,58 +9,83 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-let activeUsers = [];
-let currentVideoId = 'dQw4w9WgXcQ'; // Başlangıç videosu
-let currentVideoTime = 0;
-let isVideoPlaying = false;
+// Odaları hafızada tutacağımız obje
+// Örnek: rooms['12345'] = { password: 'abc', videoId: '...', time: 0, isPlaying: false }
+const rooms = {};
 
 io.on('connection', (socket) => {
     
-    // Yeni bağlanan kullanıcıya mevcut video durumunu gönder
-    socket.emit('videoChange', currentVideoId);
-    if (isVideoPlaying) {
-        socket.emit('videoPlay', currentVideoTime);
-    } else {
-        socket.emit('videoPause');
-        socket.emit('videoSeek', currentVideoTime);
-    }
+    // 1. ODA OLUŞTURMA
+    socket.on('createRoom', (password, callback) => {
+        const roomId = Math.random().toString(36).substring(2, 8); // Rastgele 6 haneli kod
+        rooms[roomId] = {
+            password: password,
+            videoId: 'dQw4w9WgXcQ', // Başlangıç videosu
+            time: 0,
+            isPlaying: false
+        };
+        callback(roomId);
+    });
 
-    socket.on('join', (username) => {
-        socket.username = username;
-        if (!activeUsers.includes(username)) activeUsers.push(username);
+    // 2. ODAYA KATILMA VE ŞİFRE KONTROLÜ
+    socket.on('joinRoom', ({ roomId, password, username }, callback) => {
+        const room = rooms[roomId];
         
-        socket.broadcast.emit('message', { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#008B8B' });
+        if (!room) {
+            return callback({ success: false, message: 'Böyle bir oda bulunamadı.' });
+        }
+        if (room.password !== password) {
+            return callback({ success: false, message: 'Hatalı şifre!' });
+        }
+
+        // Şifre doğruysa kullanıcıyı odaya al
+        socket.join(roomId);
+        socket.username = username;
+        socket.roomId = roomId;
+
+        callback({ success: true, videoId: room.videoId, time: room.time, isPlaying: room.isPlaying });
+
+        // Odadakilere haber ver
+        socket.to(roomId).emit('message', { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#00CED1' });
     });
 
+    // 3. SOHBET
     socket.on('chatMessage', (msg) => {
-        io.emit('message', { user: socket.username || 'Anonim', text: msg, color: '#00CED1' });
+        if (socket.roomId) {
+            io.to(socket.roomId).emit('message', { user: socket.username, text: msg, color: '#40E0D0' });
+        }
     });
 
-    // --- VİDEO KONTROLLERİ ---
+    // 4. VİDEO KONTROLLERİ (Sadece aynı odadakilere gider)
     socket.on('loadVideo', (videoId) => {
-        currentVideoId = videoId;
-        currentVideoTime = 0;
-        isVideoPlaying = true;
-        io.emit('videoChange', videoId);
-        io.emit('message', { user: 'Sistem', text: `${socket.username || 'Biri'} yeni video açtı.`, color: '#FF4500' });
+        if (socket.roomId && rooms[socket.roomId]) {
+            rooms[socket.roomId].videoId = videoId;
+            rooms[socket.roomId].time = 0;
+            rooms[socket.roomId].isPlaying = true;
+            io.to(socket.roomId).emit('videoChange', videoId);
+            io.to(socket.roomId).emit('message', { user: 'Sistem', text: `${socket.username} yeni video açtı.`, color: '#FF4500' });
+        }
     });
 
     socket.on('playVideo', (time) => {
-        currentVideoTime = time;
-        isVideoPlaying = true;
-        socket.broadcast.emit('videoPlay', time);
+        if (socket.roomId && rooms[socket.roomId]) {
+            rooms[socket.roomId].time = time;
+            rooms[socket.roomId].isPlaying = true;
+            socket.to(socket.roomId).emit('videoPlay', time);
+        }
     });
 
     socket.on('pauseVideo', (time) => {
-        currentVideoTime = time;
-        isVideoPlaying = false;
-        socket.broadcast.emit('videoPause');
+        if (socket.roomId && rooms[socket.roomId]) {
+            rooms[socket.roomId].time = time;
+            rooms[socket.roomId].isPlaying = false;
+            socket.to(socket.roomId).emit('videoPause');
+        }
     });
 
     socket.on('disconnect', () => {
-        if (socket.username) {
-            activeUsers = activeUsers.filter(user => user !== socket.username);
-            io.emit('message', { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' });
+        if (socket.username && socket.roomId) {
+            socket.to(socket.roomId).emit('message', { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' });
         }
     });
 });
