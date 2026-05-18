@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Turkuaz İzleme Odası</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     
@@ -30,7 +31,11 @@
     <div id="main-screen" class="screen hidden">
         <div class="header">
             <h2 class="glow-text">Turkuaz Odası</h2>
-            <button id="copy-link-btn" class="outline-btn">Davet Linkini Kopyala</button>
+            <div class="header-controls">
+                <button id="toggle-mic-btn" class="control-btn muted"><i class="fas fa-microphone-slash"></i></button>
+                <button id="toggle-cam-btn" class="control-btn camera-off"><i class="fas fa-video-slash"></i></button>
+                <button id="copy-link-btn" class="outline-btn">Davet Linkini Kopyala</button>
+            </div>
         </div>
         
         <div class="content-wrapper">
@@ -44,11 +49,18 @@
                 </div>
             </div>
 
-            <div class="chat-section">
-                <div id="chat-messages" class="chat-messages"></div>
-                <div class="chat-input">
-                    <input type="text" id="msg-input" placeholder="Mesaj yazın..." autocomplete="off">
-                    <button id="send-btn">Gönder</button>
+            <div class="side-panel">
+                <div class="user-camera-container">
+                    <video id="local-video" autoplay muted playsinline></video>
+                    <div class="camera-placeholder">Kamera Kapalı</div>
+                </div>
+
+                <div class="chat-section">
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="msg-input" placeholder="Mesaj yazın..." autocomplete="off">
+                        <button id="send-btn">Gönder</button>
+                    </div>
                 </div>
             </div>
         </div>
