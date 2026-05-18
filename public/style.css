@@ -60,3 +60,20 @@ body { background-color: #0b1111; color: white; height: 100vh; overflow: hidden;
     .header h2 { display: none; /* Mobilde alan kazanmak için yazıyı gizle */ }
     .camera-box { width: 100px; height: 75px; }
 }
+/* --- YENİ: KATILIMCILAR MENÜSÜ --- */
+.participants-wrapper { position: relative; }
+.dropdown-menu { 
+    position: absolute; top: 50px; right: 0; background: #0d1a1a; 
+    border: 1px solid #00CED1; border-radius: 10px; width: 250px; 
+    padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); z-index: 2000; 
+}
+.dropdown-menu h4 { color: #00CED1; border-bottom: 1px solid #1a3333; padding-bottom: 8px; margin-bottom: 10px; font-size: 14px; }
+.dropdown-menu ul { list-style: none; }
+.participant-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1a3333; color: white; font-size: 14px; }
+.participant-item:last-child { border-bottom: none; }
+.mute-remote-btn { cursor: pointer; color: #00CED1; transition: 0.3s; font-size: 16px; }
+.mute-remote-btn:hover { color: #40E0D0; }
+.mute-remote-btn.muted { color: #ff4c4c; } /* Susturulmuşsa Kırmızı */
+
+/* Kutuyu gizlemek için !important kuralı */
+.camera-box.hidden { display: none !important; }

@@ -17,7 +17,8 @@ io.on('connection', (socket) => {
         const roomId = Math.random().toString(36).substring(2, 8);
         rooms[roomId] = {
             password: password, videoId: 'dQw4w9WgXcQ', time: 0, 
-            updatedAt: Date.now(), isPlaying: false, messages: [] 
+            updatedAt: Date.now(), isPlaying: false, messages: [],
+            users: {} // YENİ: Odadaki kullanıcıların durumlarını tutacağız
         };
         callback(roomId);
     });
@@ -30,6 +31,9 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         socket.username = username;
         socket.roomId = roomId;
+
+        // Kullanıcıyı listeye ekle
+        room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false };
 
         let currentRealTime = room.time;
         if (room.isPlaying) currentRealTime += (Date.now() - room.updatedAt) / 1000;
@@ -44,12 +48,21 @@ io.on('connection', (socket) => {
         if(room.messages.length > 50) room.messages.shift();
         
         io.to(roomId).emit('message', sysMsg);
-
-        // YENİ: Diğer kullanıcılara WebRTC bağlantısı için yeni kişinin geldiğini haber ver
         socket.to(roomId).emit('user-joined', socket.id, username);
+
+        // YENİ: Odadaki herkese güncel kullanıcı listesini gönder
+        io.to(roomId).emit('update-users', room.users);
     });
 
-    // YENİ: WebRTC Sinyalleşme (Kamera ve Ses verilerini eşleştirmek için)
+    // YENİ: Kullanıcının medya (mikrofon/kamera) durumu değiştiğinde
+    socket.on('mediaState', (state) => {
+        if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].users[socket.id]) {
+            rooms[socket.roomId].users[socket.id].isMicOn = state.isMicOn;
+            rooms[socket.roomId].users[socket.id].isCamOn = state.isCamOn;
+            io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users); // Herkese bildir
+        }
+    });
+
     socket.on('signal', (toId, message) => {
         io.to(toId).emit('signal', socket.id, message);
     });
@@ -86,12 +99,16 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (socket.username && socket.roomId && rooms[socket.roomId]) {
+            // Kullanıcıyı listeden çıkar
+            delete rooms[socket.roomId].users[socket.id];
+            
             const sysMsg = { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' };
             rooms[socket.roomId].messages.push(sysMsg);
             socket.to(socket.roomId).emit('message', sysMsg);
-            
-            // YENİ: Giden kişinin kamerasını diğerlerinden silmek için
             socket.to(socket.roomId).emit('user-left', socket.id);
+
+            // Kalanlara güncel listeyi gönder
+            io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users);
         }
     });
 });

@@ -32,9 +32,18 @@
         <div class="header">
             <h2 class="glow-text">Turkuaz Odası</h2>
             <div class="header-controls">
+                
+                <div class="participants-wrapper">
+                    <button id="participants-btn" class="outline-btn"><i class="fas fa-users"></i> Katılanlar (<span id="user-count">1</span>)</button>
+                    <div id="participants-dropdown" class="dropdown-menu hidden">
+                        <h4>Odada Kimler Var?</h4>
+                        <ul id="participants-list"></ul>
+                    </div>
+                </div>
+
                 <button id="toggle-mic-btn" class="control-btn muted"><i class="fas fa-microphone-slash"></i></button>
                 <button id="toggle-cam-btn" class="control-btn camera-off"><i class="fas fa-video-slash"></i></button>
-                <button id="copy-link-btn" class="outline-btn">Davet Linkini Kopyala</button>
+                <button id="copy-link-btn" class="outline-btn">Davet Linki</button>
             </div>
         </div>
         
@@ -42,11 +51,11 @@
             <div class="video-section">
                 
                 <div class="camera-boxes-container hidden" id="camera-boxes-container">
-                    <div class="camera-box" id="local-camera-box" style="left: 10px; top: 10px;">
+                    <div class="camera-box hidden" id="local-camera-box" style="left: 10px; top: 10px;">
                         <video id="local-video" autoplay muted playsinline></video>
                         <div class="camera-placeholder">Kamera Kapalı</div>
                     </div>
-                    </div>
+                </div>
 
                 <div class="video-controls">
                     <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">

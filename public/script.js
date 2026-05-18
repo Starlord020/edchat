@@ -80,7 +80,7 @@ joinBtn.addEventListener('click', () => {
 copyLinkBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(window.location.href);
     copyLinkBtn.innerText = "Kopyalandı!";
-    setTimeout(() => { copyLinkBtn.innerText = "Davet Linkini Kopyala"; }, 2000);
+    setTimeout(() => { copyLinkBtn.innerText = "Davet Linki"; }, 2000);
 });
 
 sendBtn.addEventListener('click', () => {
@@ -130,18 +130,26 @@ socket.on('videoPause', () => {
     }
 });
 
-// --- YENİ: GERÇEK WEBRTC GÖRÜNTÜ VE SES AKTARIMI ---
+
+// --- YENİ: WEBRTC, KATILIMCILAR VE GİZLEME MANTIĞI ---
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
 const toggleCamBtn = document.getElementById('toggle-cam-btn');
 const cameraBoxesContainer = document.getElementById('camera-boxes-container');
 const localVideo = document.getElementById('local-video');
+const localCameraBox = document.getElementById('local-camera-box');
+
+// Katılımcı Listesi Elementleri
+const participantsBtn = document.getElementById('participants-btn');
+const participantsDropdown = document.getElementById('participants-dropdown');
+const participantsList = document.getElementById('participants-list');
+const userCountSpan = document.getElementById('user-count');
 
 let localStream = null;
 let isMicOn = false;
 let isCamOn = false;
-const peers = {}; // Diğer kullanıcılara olan bağlantıları tutar
+const peers = {}; 
+const locallyMutedUsers = new Set(); // Kendi tarafımızda sesini kıstığımız kişiler
 
-// Google'ın ücretsiz bağlantı sunucuları
 const configuration = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
 async function getMediaStream() {
@@ -156,13 +164,24 @@ async function getMediaStream() {
     }
 }
 
-// Buton Kontrolleri
+// Kendi durumumuzu sunucuya bildir
+function emitMediaState() {
+    socket.emit('mediaState', { isMicOn, isCamOn });
+    // Yerel kutuyu gizleme kontrolü (Hem ses hem kamera kapalıysa gizle)
+    if (!isMicOn && !isCamOn) {
+        localCameraBox.classList.add('hidden');
+    } else {
+        localCameraBox.classList.remove('hidden');
+    }
+}
+
 toggleMicBtn.addEventListener('click', () => {
     if (!localStream) return;
     isMicOn = !isMicOn;
     localStream.getAudioTracks()[0].enabled = isMicOn;
     toggleMicBtn.className = isMicOn ? 'control-btn' : 'control-btn muted';
     toggleMicBtn.innerHTML = isMicOn ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+    emitMediaState();
 });
 
 toggleCamBtn.addEventListener('click', () => {
@@ -172,24 +191,82 @@ toggleCamBtn.addEventListener('click', () => {
     toggleCamBtn.className = isCamOn ? 'control-btn' : 'control-btn camera-off';
     toggleCamBtn.innerHTML = isCamOn ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
     localVideo.style.display = isCamOn ? 'block' : 'none';
+    emitMediaState();
 });
 
-// Biri odaya katıldığında onu ara
-socket.on('user-joined', (userId) => {
-    const pc = createPeerConnection(userId, true);
-    peers[userId] = pc;
+// Katılımcılar Menüsünü Aç/Kapat
+participantsBtn.addEventListener('click', () => {
+    participantsDropdown.classList.toggle('hidden');
 });
 
-// Gelen WebRTC Sinyallerini İşle
+// Sunucudan Kullanıcı Listesi Güncellemesi Geldiğinde
+socket.on('update-users', (usersMap) => {
+    participantsList.innerHTML = ''; // Listeyi temizle
+    const userKeys = Object.keys(usersMap);
+    userCountSpan.innerText = userKeys.length;
+
+    userKeys.forEach(userId => {
+        const user = usersMap[userId];
+        const isMe = userId === socket.id;
+
+        // 1. Katılımcı Listesine Ekle
+        const li = document.createElement('li');
+        li.className = 'participant-item';
+        
+        let actionsHtml = '';
+        if (!isMe) {
+            const isMuted = locallyMutedUsers.has(userId);
+            actionsHtml = `<i class="fas ${isMuted ? 'fa-volume-mute muted' : 'fa-volume-up'} mute-remote-btn" data-id="${userId}" title="Sesi Aç/Kapat"></i>`;
+        }
+
+        li.innerHTML = `
+            <span>${user.username} ${isMe ? '(Sen)' : ''}</span>
+            <div class="participant-actions">
+                ${actionsHtml}
+            </div>
+        `;
+        participantsList.appendChild(li);
+
+        // 2. Karşı Tarafın Kutusunu Gizle/Göster (Hem mikrofon hem kamera kapalıysa gizle)
+        if (!isMe) {
+            const remoteBox = document.getElementById(`camera-${userId}`);
+            if (remoteBox) {
+                if (!user.isMicOn && !user.isCamOn) {
+                    remoteBox.classList.add('hidden');
+                } else {
+                    remoteBox.classList.remove('hidden');
+                }
+            }
+        }
+    });
+
+    // Ses Açma/Kapama İkonlarına Tıklama Olayı Ekle
+    document.querySelectorAll('.mute-remote-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const targetId = e.target.getAttribute('data-id');
+            const videoElem = document.querySelector(`#camera-${targetId} video`);
+            
+            if (locallyMutedUsers.has(targetId)) {
+                locallyMutedUsers.delete(targetId);
+                e.target.className = 'fas fa-volume-up mute-remote-btn';
+                if (videoElem) videoElem.muted = false;
+            } else {
+                locallyMutedUsers.add(targetId);
+                e.target.className = 'fas fa-volume-mute mute-remote-btn muted';
+                if (videoElem) videoElem.muted = true;
+            }
+        });
+    });
+});
+
+
+// WebRTC Sinyalleşme
+socket.on('user-joined', (userId) => { peers[userId] = createPeerConnection(userId, true); });
 socket.on('signal', async (userId, message) => {
-    if (!peers[userId]) {
-        peers[userId] = createPeerConnection(userId, false);
-    }
+    if (!peers[userId]) peers[userId] = createPeerConnection(userId, false);
     const pc = peers[userId];
-
-    if (message.ice) {
-        pc.addIceCandidate(new RTCIceCandidate(message.ice));
-    } else if (message.sdp) {
+    if (message.ice) pc.addIceCandidate(new RTCIceCandidate(message.ice));
+    else if (message.sdp) {
         await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
         if (message.sdp.type === 'offer') {
             const answer = await pc.createAnswer();
@@ -199,38 +276,23 @@ socket.on('signal', async (userId, message) => {
     }
 });
 
-// P2P Bağlantısı Oluştur
 function createPeerConnection(userId, isInitiator) {
     const pc = new RTCPeerConnection(configuration);
-    if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-    }
-    
-    pc.onicecandidate = event => {
-        if (event.candidate) socket.emit('signal', userId, { ice: event.candidate });
-    };
-
-    pc.ontrack = event => {
-        addRemoteVideo(userId, event.streams[0]);
-    };
-
+    if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    pc.onicecandidate = e => { if (e.candidate) socket.emit('signal', userId, { ice: e.candidate }); };
+    pc.ontrack = e => addRemoteVideo(userId, e.streams[0]);
     if (isInitiator) {
-        pc.createOffer().then(offer => {
-            pc.setLocalDescription(offer);
-            socket.emit('signal', userId, { sdp: offer });
-        });
+        pc.createOffer().then(offer => { pc.setLocalDescription(offer); socket.emit('signal', userId, { sdp: offer }); });
     }
     return pc;
 }
 
-// Yeni gelen kişinin kamerasını ekrana ekle
 function addRemoteVideo(userId, stream) {
     if (document.getElementById(`camera-${userId}`)) return;
 
     const box = document.createElement('div');
     box.className = 'camera-box';
     box.id = `camera-${userId}`;
-    // Yeni kutuları yerel kutunun sağına dizmek için rastgele başlangıç
     box.style.left = `${Math.random() * 50 + 170}px`; 
     box.style.top = '10px';
 
@@ -239,43 +301,39 @@ function addRemoteVideo(userId, stream) {
     vid.autoplay = true;
     vid.playsInline = true;
     vid.srcObject = stream;
-    vid.style.display = 'block';
+    
+    // Eğer bu kişiyi önceden listeden sessize aldıysak videoyu da sessize al
+    if (locallyMutedUsers.has(userId)) vid.muted = true;
 
     box.appendChild(vid);
     cameraBoxesContainer.appendChild(box);
 }
 
-// Biri çıkınca kamerasını sil
 socket.on('user-left', (userId) => {
-    if (peers[userId]) {
-        peers[userId].close();
-        delete peers[userId];
-    }
+    if (peers[userId]) { peers[userId].close(); delete peers[userId]; }
     const box = document.getElementById(`camera-${userId}`);
     if (box) box.remove();
+    locallyMutedUsers.delete(userId); // Odadan çıkınca sessize alma listesinden de çıkar
 });
 
 window.addEventListener('load', getMediaStream);
 
-// --- YENİ: SÜRÜKLE BIRAK (Mobil ve Metin Seçme Hatası Çözüldü) ---
+// --- SÜRÜKLE BIRAK (Mobil Uyumlu) ---
 let isDragging = false;
 let currentBox = null;
 let offsetX = 0, offsetY = 0;
 
-function getEventPos(e) {
-    return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
-}
+function getEventPos(e) { return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; }
 
 function startDrag(e) {
     const box = e.target.closest('.camera-box');
     if (!box) return;
     
-    // Sağ alt köşeden (boyutlandırma) tutulup tutulmadığını kontrol et
     const rect = box.getBoundingClientRect();
     const pos = getEventPos(e);
-    if (pos.x >= rect.right - 20 && pos.y >= rect.bottom - 20) return; // Boyutlandırmaya izin ver
+    if (pos.x >= rect.right - 20 && pos.y >= rect.bottom - 20) return; 
 
-    e.preventDefault(); // MAVİ SEÇME HATASINI ENGELLER
+    e.preventDefault(); 
     isDragging = true;
     currentBox = box;
     
@@ -291,12 +349,8 @@ function drag(e) {
     if (!isDragging || !currentBox) return;
     const pos = getEventPos(e);
     const parentRect = cameraBoxesContainer.getBoundingClientRect();
-    
-    let newX = pos.x - parentRect.left - offsetX;
-    let newY = pos.y - parentRect.top - offsetY;
-
-    currentBox.style.left = `${newX}px`;
-    currentBox.style.top = `${newY}px`;
+    currentBox.style.left = `${pos.x - parentRect.left - offsetX}px`;
+    currentBox.style.top = `${pos.y - parentRect.top - offsetY}px`;
 }
 
 function stopDrag() {
@@ -308,11 +362,5 @@ function stopDrag() {
     }
 }
 
-// Hem fare hem dokunmatik (mobil) için olaylar
-document.addEventListener('mousedown', startDrag);
-document.addEventListener('mousemove', drag);
-document.addEventListener('mouseup', stopDrag);
-
-document.addEventListener('touchstart', startDrag, {passive: false});
-document.addEventListener('touchmove', drag, {passive: false});
-document.addEventListener('touchend', stopDrag);
+document.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
+document.addEventListener('touchstart', startDrag, {passive: false}); document.addEventListener('touchmove', drag, {passive: false}); document.addEventListener('touchend', stopDrag);
