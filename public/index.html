@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Turkuaz İzleme Odası</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -42,11 +42,11 @@
             <div class="video-section">
                 
                 <div class="camera-boxes-container hidden" id="camera-boxes-container">
-                    <div class="camera-box" id="local-camera-box">
+                    <div class="camera-box" id="local-camera-box" style="left: 10px; top: 10px;">
                         <video id="local-video" autoplay muted playsinline></video>
                         <div class="camera-placeholder">Kamera Kapalı</div>
                     </div>
-                </div>
+                    </div>
 
                 <div class="video-controls">
                     <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">
