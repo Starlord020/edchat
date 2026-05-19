@@ -287,3 +287,26 @@ function stopDrag() {
 
 document.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
 document.addEventListener('touchstart', startDrag, {passive: false}); document.addEventListener('touchmove', drag, {passive: false}); document.addEventListener('touchend', stopDrag);
+// --- YENİ: GERÇEK TAM EKRAN (CHROME ADRES ÇUBUĞUNU GİZLEME) ---
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+        // Tam ekrana geç (Adres çubuğu ve telefon bildirim çubuğu gizlenir)
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Tam ekran yapılamadı: ${err.message}`);
+        });
+    } else {
+        // Tam ekrandan çık
+        document.exitFullscreen();
+    }
+});
+
+// Tam ekran durumu değiştiğinde buton ikonunu güncelle
+document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) {
+        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+    } else {
+        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+    }
+});
