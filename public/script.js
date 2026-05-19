@@ -15,30 +15,22 @@ const chatMessages = document.getElementById('chat-messages');
 const ytUrlInput = document.getElementById('youtube-url');
 const loadBtn = document.getElementById('load-btn');
 const copyLinkBtn = document.getElementById('copy-link-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// --- SOHBET BALONCUĞU & BİLDİRİM ROZETİ ---
+// Sohbet Baloncuğu
 const chatToggleBtn = document.getElementById('chat-toggle-btn');
 const chatCloseBtn = document.getElementById('chat-close-btn');
 const chatPanel = document.getElementById('chat-panel');
 const unreadBadge = document.getElementById('unread-badge');
-
-let unreadCount = 0; // Okunmamış mesaj sayısı
+let unreadCount = 0;
 
 chatToggleBtn.addEventListener('click', () => {
     chatPanel.classList.toggle('chat-closed');
-    // Sohbet açıldığında bildirimi sıfırla ve rozeti gizle
-    if (!chatPanel.classList.contains('chat-closed')) {
-        unreadCount = 0;
-        unreadBadge.classList.add('hidden');
-    }
+    if (!chatPanel.classList.contains('chat-closed')) { unreadCount = 0; unreadBadge.classList.add('hidden'); }
 });
-
-chatCloseBtn.addEventListener('click', () => {
-    chatPanel.classList.add('chat-closed');
-});
+chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
 let player; let isUserAction = true; let currentRoomId = null;
-
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('oda');
 if (roomParam) { currentRoomId = roomParam; passwordScreen.classList.remove('hidden'); } 
@@ -50,14 +42,10 @@ function appendMessage(data) {
     div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${data.text}</div>`;
     chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Mesaj geldiğinde sohbet penceresi kapalıysa sayıyı artır
     if (chatPanel.classList.contains('chat-closed')) {
         chatToggleBtn.style.transform = 'scale(1.2)';
         setTimeout(() => chatToggleBtn.style.transform = 'scale(1)', 200);
-        
-        unreadCount++;
-        unreadBadge.innerText = unreadCount;
-        unreadBadge.classList.remove('hidden');
+        unreadCount++; unreadBadge.innerText = unreadCount; unreadBadge.classList.remove('hidden');
     }
 }
 
@@ -97,6 +85,7 @@ sendBtn.addEventListener('click', () => {
 msgInput.addEventListener('keypress', e => e.key === 'Enter' && sendBtn.click());
 socket.on('message', appendMessage);
 
+// YOUTUBE KONTROLLERİ
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', { height: '100%', width: '100%', videoId: '', playerVars: { 'autoplay': 0, 'controls': 1 }, events: { 'onStateChange': onPlayerStateChange } });
 }
@@ -114,10 +103,10 @@ socket.on('videoChange', (videoId) => { if(player && player.loadVideoById) { isU
 socket.on('videoPlay', (time) => { if(player && player.playVideo) { isUserAction = false; if (Math.abs(player.getCurrentTime() - time) > 2) player.seekTo(time); player.playVideo(); setTimeout(() => isUserAction = true, 500); } });
 socket.on('videoPause', () => { if(player && player.pauseVideo) { isUserAction = false; player.pauseVideo(); setTimeout(() => isUserAction = true, 500); } });
 
-
-// --- WEBRTC VE KATILIMCILAR ---
+// --- WEBRTC ---
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
 const toggleCamBtn = document.getElementById('toggle-cam-btn');
+const toggleScreenBtn = document.getElementById('toggle-screen-btn');
 const cameraBoxesContainer = document.getElementById('camera-boxes-container');
 const localVideo = document.getElementById('local-video');
 const localCameraBox = document.getElementById('local-camera-box');
@@ -126,7 +115,8 @@ const participantsDropdown = document.getElementById('participants-dropdown');
 const participantsList = document.getElementById('participants-list');
 const userCountSpan = document.getElementById('user-count');
 
-let localStream = null; let isMicOn = false; let isCamOn = false;
+let localStream = null; let screenStream = null;
+let isMicOn = false; let isCamOn = false; let isScreenSharing = false;
 let currentUsers = {}; 
 const peers = {}; const locallyMutedUsers = new Set(); 
 const configuration = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
@@ -140,8 +130,8 @@ async function getMediaStream() {
 }
 
 function emitMediaState() {
-    socket.emit('mediaState', { isMicOn, isCamOn });
-    if (!isCamOn) localCameraBox.classList.add('hidden'); 
+    socket.emit('mediaState', { isMicOn, isCamOn: isCamOn || isScreenSharing });
+    if (!isCamOn && !isScreenSharing) localCameraBox.classList.add('hidden'); 
     else localCameraBox.classList.remove('hidden');
 }
 
@@ -153,12 +143,52 @@ toggleMicBtn.addEventListener('click', () => {
 });
 
 toggleCamBtn.addEventListener('click', () => {
-    if (!localStream) return; isCamOn = !isCamOn; localStream.getVideoTracks()[0].enabled = isCamOn;
+    if (!localStream) return; 
+    if (isScreenSharing) stopScreenSharing();
+    isCamOn = !isCamOn; localStream.getVideoTracks()[0].enabled = isCamOn;
     toggleCamBtn.className = isCamOn ? 'control-btn' : 'control-btn camera-off';
     toggleCamBtn.innerHTML = isCamOn ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
-    localVideo.style.display = isCamOn ? 'block' : 'none'; 
+    localVideo.srcObject = localStream; localVideo.style.display = isCamOn ? 'block' : 'none'; 
     emitMediaState();
 });
+
+toggleScreenBtn.addEventListener('click', async () => {
+    if (!isScreenSharing) {
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            isScreenSharing = true;
+            if (isCamOn) {
+                isCamOn = false; localStream.getVideoTracks()[0].enabled = false;
+                toggleCamBtn.className = 'control-btn camera-off'; toggleCamBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+            }
+            toggleScreenBtn.classList.add('muted'); toggleScreenBtn.innerHTML = '<i class="fas fa-times-circle"></i>'; 
+            localVideo.srcObject = screenStream; localVideo.style.display = 'block';
+
+            const screenTrack = screenStream.getVideoTracks()[0];
+            for (let userId in peers) {
+                const sender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(screenTrack);
+            }
+            emitMediaState();
+            screenTrack.onended = () => { stopScreenSharing(); };
+        } catch (err) { console.error("Ekran paylaşılamadı:", err); }
+    } else { stopScreenSharing(); }
+});
+
+function stopScreenSharing() {
+    if (!isScreenSharing) return;
+    isScreenSharing = false;
+    if (screenStream) { screenStream.getTracks().forEach(track => track.stop()); screenStream = null; }
+    toggleScreenBtn.classList.remove('muted'); toggleScreenBtn.innerHTML = '<i class="fas fa-desktop"></i>';
+    localVideo.srcObject = localStream; localVideo.style.display = 'none';
+
+    const camTrack = localStream.getVideoTracks()[0];
+    for (let userId in peers) {
+        const sender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(camTrack);
+    }
+    emitMediaState();
+}
 
 participantsBtn.addEventListener('click', () => { participantsDropdown.classList.toggle('hidden'); });
 
@@ -219,7 +249,6 @@ function createPeerConnection(userId, isInitiator) {
 
 function addRemoteVideo(userId, stream) {
     if (document.getElementById(`camera-${userId}`)) return;
-    
     const isCamActive = currentUsers[userId] && currentUsers[userId].isCamOn;
     const box = document.createElement('div'); 
     box.className = isCamActive ? 'camera-box' : 'camera-box hidden'; 
@@ -239,23 +268,45 @@ socket.on('user-left', (userId) => {
 
 window.addEventListener('load', getMediaStream);
 
-// --- HEADER (MENÜ) GİZLEME VE TAM EKRAN MANTIĞI ---
+// --- TAM EKRAN MANTIĞI ---
+if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => console.log(err)); } 
+        else { document.exitFullscreen(); }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+        else fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+    });
+}
+
+// --- HEADER GİZLEME VE MOBİL YATAY MANTIĞI ---
 const headerToggleBtn = document.getElementById('header-toggle-btn');
 const mainHeader = document.getElementById('main-header');
 
 headerToggleBtn.addEventListener('click', () => {
     mainHeader.classList.toggle('collapsed');
-    
     if (mainHeader.classList.contains('collapsed')) {
         headerToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-        // YENİ DÜZELTME: Mobilde üst menüyü kapatınca sohbeti de kapat ki video TAM EKRAN olsun
-        if (window.innerWidth <= 768) {
-            chatPanel.classList.add('chat-closed');
-        }
+        if (window.innerWidth <= 768) chatPanel.classList.add('chat-closed');
     } else {
         headerToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
     }
 });
+
+function handleOrientationChange() {
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const isMobile = window.innerWidth <= 950; 
+    if (isLandscape && isMobile) {
+        if (!mainHeader.classList.contains('collapsed')) { mainHeader.classList.add('collapsed'); headerToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; }
+        if (!chatPanel.classList.contains('chat-closed')) chatPanel.classList.add('chat-closed');
+    } else if (!isLandscape && isMobile) {
+        if (mainHeader.classList.contains('collapsed')) { mainHeader.classList.remove('collapsed'); headerToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; }
+    }
+}
+window.addEventListener('resize', handleOrientationChange);
+window.addEventListener('orientationchange', handleOrientationChange);
+handleOrientationChange();
 
 // --- SÜRÜKLE BIRAK MANTIĞI ---
 let isDragging = false; let currentBox = null; let offsetX = 0, offsetY = 0;
@@ -287,26 +338,3 @@ function stopDrag() {
 
 document.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
 document.addEventListener('touchstart', startDrag, {passive: false}); document.addEventListener('touchmove', drag, {passive: false}); document.addEventListener('touchend', stopDrag);
-// --- YENİ: GERÇEK TAM EKRAN (CHROME ADRES ÇUBUĞUNU GİZLEME) ---
-const fullscreenBtn = document.getElementById('fullscreen-btn');
-
-fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-        // Tam ekrana geç (Adres çubuğu ve telefon bildirim çubuğu gizlenir)
-        document.documentElement.requestFullscreen().catch(err => {
-            console.log(`Tam ekran yapılamadı: ${err.message}`);
-        });
-    } else {
-        // Tam ekrandan çık
-        document.exitFullscreen();
-    }
-});
-
-// Tam ekran durumu değiştiğinde buton ikonunu güncelle
-document.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement) {
-        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-    } else {
-        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-    }
-});
