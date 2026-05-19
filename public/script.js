@@ -16,6 +16,18 @@ const ytUrlInput = document.getElementById('youtube-url');
 const loadBtn = document.getElementById('load-btn');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 
+// --- SOHBET BALONCUĞU AÇMA/KAPAMA ---
+const chatToggleBtn = document.getElementById('chat-toggle-btn');
+const chatCloseBtn = document.getElementById('chat-close-btn');
+const chatPanel = document.getElementById('chat-panel');
+
+chatToggleBtn.addEventListener('click', () => {
+    chatPanel.classList.toggle('chat-closed');
+});
+chatCloseBtn.addEventListener('click', () => {
+    chatPanel.classList.add('chat-closed');
+});
+
 let player; let isUserAction = true; let currentRoomId = null;
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -28,6 +40,12 @@ function appendMessage(data) {
     div.classList.add('message'); div.style.borderLeftColor = data.color;
     div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${data.text}</div>`;
     chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Mesaj geldiğinde eğer sohbet kapalıysa baloncuğu hafifçe titret
+    if (chatPanel.classList.contains('chat-closed')) {
+        chatToggleBtn.style.transform = 'scale(1.2)';
+        setTimeout(() => chatToggleBtn.style.transform = 'scale(1)', 200);
+    }
 }
 
 createBtn.addEventListener('click', () => {
@@ -55,8 +73,8 @@ joinBtn.addEventListener('click', () => {
 });
 
 copyLinkBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(window.location.href); copyLinkBtn.innerText = "Kopyalandı!";
-    setTimeout(() => { copyLinkBtn.innerText = "Davet Linki"; }, 2000);
+    navigator.clipboard.writeText(window.location.href); copyLinkBtn.innerHTML = "Kopyalandı!";
+    setTimeout(() => { copyLinkBtn.innerHTML = '<span class="hide-mobile">Davet Linki</span><i class="fas fa-link show-mobile-inline"></i>'; }, 2000);
 });
 
 sendBtn.addEventListener('click', () => {

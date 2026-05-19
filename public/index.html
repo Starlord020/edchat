@@ -36,25 +36,28 @@
 
         <div class="header" id="main-header">
             <h2 class="glow-text">Turkuaz Odası</h2>
+            
+            <div class="video-controls-header">
+                <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">
+                <button id="load-btn">Aç</button>
+            </div>
+
             <div class="header-controls">
-                
                 <div class="participants-wrapper">
-                    <button id="participants-btn" class="outline-btn"><i class="fas fa-users"></i> Katılanlar (<span id="user-count">1</span>)</button>
+                    <button id="participants-btn" class="outline-btn"><i class="fas fa-users"></i> <span class="hide-mobile">Katılanlar</span> (<span id="user-count">1</span>)</button>
                     <div id="participants-dropdown" class="dropdown-menu hidden">
                         <h4>Odada Kimler Var?</h4>
                         <ul id="participants-list"></ul>
                     </div>
                 </div>
-
                 <button id="toggle-mic-btn" class="control-btn muted"><i class="fas fa-microphone-slash"></i></button>
                 <button id="toggle-cam-btn" class="control-btn camera-off"><i class="fas fa-video-slash"></i></button>
-                <button id="copy-link-btn" class="outline-btn">Davet Linki</button>
+                <button id="copy-link-btn" class="outline-btn"><span class="hide-mobile">Davet Linki</span><i class="fas fa-link show-mobile-inline"></i></button>
             </div>
         </div>
         
         <div class="content-wrapper">
             <div class="video-section">
-                
                 <div class="camera-boxes-container hidden" id="camera-boxes-container">
                     <div class="camera-box hidden" id="local-camera-box" style="left: 10px; top: 10px;">
                         <video id="local-video" autoplay muted playsinline></video>
@@ -62,16 +65,18 @@
                     </div>
                 </div>
 
-                <div class="video-controls">
-                    <input type="text" id="youtube-url" placeholder="YouTube Linki Yapıştırın..." autocomplete="off">
-                    <button id="load-btn">Aç</button>
-                </div>
                 <div class="player-wrapper">
                     <div id="player"></div>
                 </div>
             </div>
 
-            <div class="side-panel">
+            <button id="chat-toggle-btn" class="chat-bubble-btn"><i class="fas fa-comment-dots"></i></button>
+
+            <div class="chat-floating chat-closed" id="chat-panel">
+                <div class="chat-header-bar">
+                    <h3>Sohbet</h3>
+                    <button id="chat-close-btn"><i class="fas fa-times"></i></button>
+                </div>
                 <div class="chat-section">
                     <div id="chat-messages" class="chat-messages"></div>
                     <div class="chat-input">
