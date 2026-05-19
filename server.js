@@ -17,8 +17,7 @@ io.on('connection', (socket) => {
         const roomId = Math.random().toString(36).substring(2, 8);
         rooms[roomId] = {
             password: password, videoId: 'dQw4w9WgXcQ', time: 0, 
-            updatedAt: Date.now(), isPlaying: false, messages: [],
-            users: {} // YENİ: Odadaki kullanıcıların durumlarını tutacağız
+            updatedAt: Date.now(), isPlaying: false, messages: [], users: {}
         };
         callback(roomId);
     });
@@ -32,16 +31,12 @@ io.on('connection', (socket) => {
         socket.username = username;
         socket.roomId = roomId;
 
-        // Kullanıcıyı listeye ekle
         room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false };
 
         let currentRealTime = room.time;
         if (room.isPlaying) currentRealTime += (Date.now() - room.updatedAt) / 1000;
 
-        callback({ 
-            success: true, videoId: room.videoId, time: currentRealTime, 
-            isPlaying: room.isPlaying, messages: room.messages 
-        });
+        callback({ success: true, videoId: room.videoId, time: currentRealTime, isPlaying: room.isPlaying, messages: room.messages });
 
         const sysMsg = { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#00CED1' };
         room.messages.push(sysMsg);
@@ -49,23 +44,18 @@ io.on('connection', (socket) => {
         
         io.to(roomId).emit('message', sysMsg);
         socket.to(roomId).emit('user-joined', socket.id, username);
-
-        // YENİ: Odadaki herkese güncel kullanıcı listesini gönder
         io.to(roomId).emit('update-users', room.users);
     });
 
-    // YENİ: Kullanıcının medya (mikrofon/kamera) durumu değiştiğinde
     socket.on('mediaState', (state) => {
         if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].users[socket.id]) {
             rooms[socket.roomId].users[socket.id].isMicOn = state.isMicOn;
             rooms[socket.roomId].users[socket.id].isCamOn = state.isCamOn;
-            io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users); // Herkese bildir
+            io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users);
         }
     });
 
-    socket.on('signal', (toId, message) => {
-        io.to(toId).emit('signal', socket.id, message);
-    });
+    socket.on('signal', (toId, message) => { io.to(toId).emit('signal', socket.id, message); });
 
     socket.on('chatMessage', (msg) => {
         if (socket.roomId && rooms[socket.roomId]) {
@@ -99,19 +89,15 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (socket.username && socket.roomId && rooms[socket.roomId]) {
-            // Kullanıcıyı listeden çıkar
             delete rooms[socket.roomId].users[socket.id];
-            
             const sysMsg = { user: 'Sistem', text: `${socket.username} ayrıldı.`, color: '#008B8B' };
             rooms[socket.roomId].messages.push(sysMsg);
             socket.to(socket.roomId).emit('message', sysMsg);
             socket.to(socket.roomId).emit('user-left', socket.id);
-
-            // Kalanlara güncel listeyi gönder
             io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users);
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Sunucu port ${PORT} üzerinde çalışıyor`));
+server.listen(PORT, () => console.log(`Sunucu çalışıyor`));
