@@ -16,17 +16,12 @@ const ytUrlInput = document.getElementById('youtube-url');
 const loadBtn = document.getElementById('load-btn');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 
-// --- SOHBET BALONCUĞU AÇMA/KAPAMA ---
 const chatToggleBtn = document.getElementById('chat-toggle-btn');
 const chatCloseBtn = document.getElementById('chat-close-btn');
 const chatPanel = document.getElementById('chat-panel');
 
-chatToggleBtn.addEventListener('click', () => {
-    chatPanel.classList.toggle('chat-closed');
-});
-chatCloseBtn.addEventListener('click', () => {
-    chatPanel.classList.add('chat-closed');
-});
+chatToggleBtn.addEventListener('click', () => { chatPanel.classList.toggle('chat-closed'); });
+chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
 let player; let isUserAction = true; let currentRoomId = null;
 
@@ -41,7 +36,6 @@ function appendMessage(data) {
     div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${data.text}</div>`;
     chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Mesaj geldiğinde eğer sohbet kapalıysa baloncuğu hafifçe titret
     if (chatPanel.classList.contains('chat-closed')) {
         chatToggleBtn.style.transform = 'scale(1.2)';
         setTimeout(() => chatToggleBtn.style.transform = 'scale(1)', 200);
@@ -114,6 +108,7 @@ const participantsList = document.getElementById('participants-list');
 const userCountSpan = document.getElementById('user-count');
 
 let localStream = null; let isMicOn = false; let isCamOn = false;
+let currentUsers = {}; // Odaya katılanların anlık durumlarını burada tutuyoruz
 const peers = {}; const locallyMutedUsers = new Set(); 
 const configuration = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
@@ -127,7 +122,9 @@ async function getMediaStream() {
 
 function emitMediaState() {
     socket.emit('mediaState', { isMicOn, isCamOn });
-    if (!isMicOn && !isCamOn) localCameraBox.classList.add('hidden'); else localCameraBox.classList.remove('hidden');
+    // YENİ DÜZELTME: Sadece ve sadece kamera açıksa kutuyu göster!
+    if (!isCamOn) localCameraBox.classList.add('hidden'); 
+    else localCameraBox.classList.remove('hidden');
 }
 
 toggleMicBtn.addEventListener('click', () => {
@@ -141,12 +138,14 @@ toggleCamBtn.addEventListener('click', () => {
     if (!localStream) return; isCamOn = !isCamOn; localStream.getVideoTracks()[0].enabled = isCamOn;
     toggleCamBtn.className = isCamOn ? 'control-btn' : 'control-btn camera-off';
     toggleCamBtn.innerHTML = isCamOn ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
-    localVideo.style.display = isCamOn ? 'block' : 'none'; emitMediaState();
+    localVideo.style.display = isCamOn ? 'block' : 'none'; 
+    emitMediaState();
 });
 
 participantsBtn.addEventListener('click', () => { participantsDropdown.classList.toggle('hidden'); });
 
 socket.on('update-users', (usersMap) => {
+    currentUsers = usersMap;
     participantsList.innerHTML = ''; const userKeys = Object.keys(usersMap); userCountSpan.innerText = userKeys.length;
     userKeys.forEach(userId => {
         const user = usersMap[userId]; const isMe = userId === socket.id;
@@ -161,7 +160,11 @@ socket.on('update-users', (usersMap) => {
 
         if (!isMe) {
             const remoteBox = document.getElementById(`camera-${userId}`);
-            if (remoteBox) { if (!user.isMicOn && !user.isCamOn) remoteBox.classList.add('hidden'); else remoteBox.classList.remove('hidden'); }
+            if (remoteBox) { 
+                // YENİ DÜZELTME: Sadece kamera açıksa kutuyu göster!
+                if (!user.isCamOn) remoteBox.classList.add('hidden'); 
+                else remoteBox.classList.remove('hidden'); 
+            }
         }
     });
 
@@ -199,7 +202,13 @@ function createPeerConnection(userId, isInitiator) {
 
 function addRemoteVideo(userId, stream) {
     if (document.getElementById(`camera-${userId}`)) return;
-    const box = document.createElement('div'); box.className = 'camera-box'; box.id = `camera-${userId}`;
+    
+    const box = document.createElement('div'); 
+    // YENİ DÜZELTME: Odaya biri girdiğinde kamerasının açık olduğunu teyit etmeden kutuyu "hidden" olarak oluşturuyoruz.
+    const isCamActive = currentUsers[userId] && currentUsers[userId].isCamOn;
+    box.className = isCamActive ? 'camera-box' : 'camera-box hidden'; 
+    box.id = `camera-${userId}`;
+    
     box.style.left = `${Math.random() * 50 + 170}px`; box.style.top = '10px';
     const vid = document.createElement('video'); vid.className = 'remote-video'; vid.autoplay = true; vid.playsInline = true; vid.srcObject = stream;
     if (locallyMutedUsers.has(userId)) vid.muted = true;
@@ -213,7 +222,6 @@ socket.on('user-left', (userId) => {
 });
 
 window.addEventListener('load', getMediaStream);
-
 
 // --- HEADER (MENÜ) GİZLEME MANTIĞI ---
 const headerToggleBtn = document.getElementById('header-toggle-btn');
