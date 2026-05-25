@@ -96,12 +96,24 @@ socket.on('message', appendMessage);
 
 // YOUTUBE KONTROLLERİ
 function onYouTubeIframeAPIReady() {
-    player = new YT.Player('player', { height: '100%', width: '100%', videoId: '', playerVars: { 'autoplay': 0, 'controls': 1 }, events: { 'onStateChange': onPlayerStateChange } });
+    player = new YT.Player('player', { height: '100%', width: '100%', videoId: '', playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1, 'rel': 0, 'modestbranding': 1 }, events: { 'onStateChange': onPlayerStateChange, 'onReady': onPlayerReady } });
 }
+
+let uiInterval;
+function onPlayerReady(event) {
+    initCustomControls();
+}
+
 function onPlayerStateChange(event) {
-    if (!isUserAction) return;
-    if (event.data == YT.PlayerState.PLAYING) socket.emit('playVideo', player.getCurrentTime());
-    else if (event.data == YT.PlayerState.PAUSED) socket.emit('pauseVideo', player.getCurrentTime());
+    const playBtnIcon = document.querySelector('#custom-play-btn i');
+    if (event.data == YT.PlayerState.PLAYING) {
+        if (playBtnIcon) { playBtnIcon.classList.remove('fa-play'); playBtnIcon.classList.add('fa-pause'); }
+        if (isUserAction) socket.emit('playVideo', player.getCurrentTime());
+    }
+    else if (event.data == YT.PlayerState.PAUSED) {
+        if (playBtnIcon) { playBtnIcon.classList.remove('fa-pause'); playBtnIcon.classList.add('fa-play'); }
+        if (isUserAction) socket.emit('pauseVideo', player.getCurrentTime());
+    }
 }
 loadBtn.addEventListener('click', () => {
     const url = ytUrlInput.value; const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
@@ -111,6 +123,76 @@ loadBtn.addEventListener('click', () => {
 socket.on('videoChange', (videoId) => { if(player && player.loadVideoById) { isUserAction = false; player.loadVideoById(videoId); setTimeout(() => isUserAction = true, 1000); } });
 socket.on('videoPlay', (time) => { if(player && player.playVideo) { isUserAction = false; if (Math.abs(player.getCurrentTime() - time) > 2) player.seekTo(time); player.playVideo(); setTimeout(() => isUserAction = true, 500); } });
 socket.on('videoPause', () => { if(player && player.pauseVideo) { isUserAction = false; player.pauseVideo(); setTimeout(() => isUserAction = true, 500); } });
+
+// -- ÖZEL KONTROL ÇUBUĞU MANTIĞI --
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60); const s = Math.floor(seconds % 60);
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function initCustomControls() {
+    const playBtn = document.getElementById('custom-play-btn');
+    const playIcon = playBtn.querySelector('i');
+    const currentTimeEl = document.getElementById('current-time');
+    const totalTimeEl = document.getElementById('total-time');
+    const progressBar = document.getElementById('progress-bar');
+    const muteBtn = document.getElementById('custom-mute-btn');
+    const muteIcon = muteBtn.querySelector('i');
+    const volumeBar = document.getElementById('volume-bar');
+    let isDragging = false;
+
+    playBtn.addEventListener('click', () => {
+        if (player.getPlayerState() == YT.PlayerState.PLAYING) { player.pauseVideo(); playIcon.className = 'fas fa-play'; }
+        else { player.playVideo(); playIcon.className = 'fas fa-pause'; }
+    });
+
+    muteBtn.addEventListener('click', () => {
+        if (player.isMuted()) { player.unMute(); muteIcon.className = 'fas fa-volume-up'; volumeBar.value = player.getVolume(); }
+        else { player.mute(); muteIcon.className = 'fas fa-volume-mute'; volumeBar.value = 0; }
+        updateBarColor(volumeBar);
+    });
+
+    volumeBar.addEventListener('input', (e) => {
+        const val = e.target.value;
+        player.setVolume(val);
+        if (val == 0) { player.mute(); muteIcon.className = 'fas fa-volume-mute'; }
+        else { player.unMute(); muteIcon.className = val > 50 ? 'fas fa-volume-up' : 'fas fa-volume-down'; }
+        updateBarColor(e.target);
+    });
+
+    progressBar.addEventListener('mousedown', () => isDragging = true);
+    progressBar.addEventListener('touchstart', () => isDragging = true);
+    
+    progressBar.addEventListener('input', (e) => { updateBarColor(e.target); });
+
+    progressBar.addEventListener('change', (e) => {
+        const duration = player.getDuration();
+        const seekTime = (e.target.value / 100) * duration;
+        player.seekTo(seekTime, true);
+        isDragging = false;
+    });
+
+    function updateBarColor(el) {
+        el.style.background = `linear-gradient(to right, #6b7a8a ${el.value}%, #444 ${el.value}%)`;
+    }
+
+    if(uiInterval) clearInterval(uiInterval);
+    uiInterval = setInterval(() => {
+        if (player && player.getCurrentTime && player.getDuration) {
+            const current = player.getCurrentTime() || 0;
+            const duration = player.getDuration() || 0;
+            currentTimeEl.innerText = formatTime(current);
+            totalTimeEl.innerText = formatTime(duration);
+            if (!isDragging && duration > 0) {
+                const percent = (current / duration) * 100;
+                progressBar.value = percent;
+                updateBarColor(progressBar);
+            }
+        }
+    }, 500);
+    
+    volumeBar.value = player.getVolume(); updateBarColor(volumeBar);
+}
 
 // --- WEBRTC ---
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
