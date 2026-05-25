@@ -113,3 +113,15 @@ body { background-color: #0b1111; color: white; height: 100vh; height: 100dvh; o
     100% { transform: translateY(-200px) scale(1); opacity: 0; } 
 }
 
+
+/* PARTICIPANT ACTIONS CSS */
+.participant-item { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.participant-header { display: flex; justify-content: space-between; width: 100%; align-items: center; }
+.participant-controls { display: flex; width: 100%; align-items: center; gap: 8px; margin-top: 5px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; }
+.host-action-btn { background: none; border: none; color: #aaa; cursor: pointer; transition: 0.2s; font-size: 14px; }
+.host-action-btn:hover { color: #fff; }
+.host-action-btn.crown:hover { color: gold; }
+.host-action-btn.force-off:hover { color: #ff4757; }
+.remote-vol-slider { flex-grow: 1; height: 4px; -webkit-appearance: none; background: #555; border-radius: 2px; }
+.remote-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #00CED1; cursor: pointer; }
+

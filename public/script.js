@@ -272,12 +272,29 @@ let currentUsers = {};
 const peers = {}; const locallyMutedUsers = new Set(); 
 const configuration = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
+let mediaRequested = false;
+
 async function getMediaStream() {
+    if (mediaRequested) return true;
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localStream.getAudioTracks()[0].enabled = false; localStream.getVideoTracks()[0].enabled = false;
         localVideo.srcObject = localStream; cameraBoxesContainer.classList.remove('hidden');
-    } catch (err) { console.error("Medya cihazlarına erişilemedi:", err); }
+        mediaRequested = true;
+        
+        // Update peer connections with new tracks
+        for (let userId in peers) {
+            localStream.getTracks().forEach(track => {
+                const sender = peers[userId].getSenders().find(s => s.track && s.track.kind === track.kind);
+                if (!sender) peers[userId].addTrack(track, localStream);
+            });
+        }
+        return true;
+    } catch (err) { 
+        console.error("Medya cihazlarına erişilemedi:", err); 
+        alert("Kamera veya mikrofona erişilemedi. Lütfen tarayıcı izinlerinizi kontrol edin.");
+        return false; 
+    }
 }
 
 function emitMediaState() {
@@ -320,19 +337,30 @@ function manageScreenshareView() {
     }
 }
 
-toggleMicBtn.addEventListener('click', () => {
-    if (!localStream) return; isMicOn = !isMicOn; localStream.getAudioTracks()[0].enabled = isMicOn;
-    toggleMicBtn.className = isMicOn ? 'control-btn' : 'control-btn muted';
-    toggleMicBtn.innerHTML = isMicOn ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+toggleMicBtn.addEventListener('click', async () => {
+    const success = await getMediaStream();
+    if (!success) return;
+    isMicOn = !isMicOn;
+    if (localStream) localStream.getAudioTracks()[0].enabled = isMicOn;
+    if (isMicOn) {
+        toggleMicBtn.className = 'control-btn'; toggleMicBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+    } else {
+        toggleMicBtn.className = 'control-btn muted'; toggleMicBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+    }
     emitMediaState();
 });
 
-toggleCamBtn.addEventListener('click', () => {
-    if (!localStream) return; 
-    if (isScreenSharing) stopScreenSharing();
-    isCamOn = !isCamOn; localStream.getVideoTracks()[0].enabled = isCamOn;
-    toggleCamBtn.className = isCamOn ? 'control-btn' : 'control-btn camera-off';
-    toggleCamBtn.innerHTML = isCamOn ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+toggleCamBtn.addEventListener('click', async () => {
+    if (isScreenSharing) return alert("Ekran paylaşımı açıkken kamera açılamaz!");
+    const success = await getMediaStream();
+    if (!success) return;
+    isCamOn = !isCamOn;
+    if (localStream) localStream.getVideoTracks()[0].enabled = isCamOn;
+    if (isCamOn) {
+        toggleCamBtn.className = 'control-btn'; toggleCamBtn.innerHTML = '<i class="fas fa-video"></i>';
+    } else {
+        toggleCamBtn.className = 'control-btn camera-off'; toggleCamBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+    }
     localVideo.srcObject = localStream; localVideo.style.display = isCamOn ? 'block' : 'none'; 
     emitMediaState();
 });
@@ -398,9 +426,22 @@ socket.on('update-users', (usersMap) => {
         let actionsHtml = '';
         if (!isMe) {
             const isMuted = locallyMutedUsers.has(userId);
-            actionsHtml = `<i class="fas ${isMuted ? 'fa-volume-mute muted' : 'fa-volume-up'} mute-remote-btn" data-id="${userId}" title="Sesi Aç/Kapat"></i>`;
+            actionsHtml = `
+                <div class="participant-controls">
+                    <input type="range" class="remote-vol-slider" data-id="${userId}" min="0" max="100" value="${isMuted ? 0 : 100}" title="Kişisel Ses">
+                    <button class="host-action-btn ${isMuted ? 'muted' : ''} mute-remote-btn" data-id="${userId}" title="Sesi Aç/Kapat"><i class="fas ${isMuted ? 'fa-volume-mute' : 'fa-volume-up'}"></i></button>`;
+            
+            // Host actions
+            if (myId === currentHostId) {
+                actionsHtml += `
+                    <button class="host-action-btn force-off" onclick="socket.emit('forceMute', '${userId}')" title="Kişinin Mikrofonunu Kapat"><i class="fas fa-microphone-slash"></i></button>
+                    <button class="host-action-btn force-off" onclick="socket.emit('forceCamOff', '${userId}')" title="Kişinin Kamerasını Kapat"><i class="fas fa-video-slash"></i></button>
+                    <button class="host-action-btn crown" onclick="if(confirm('Yetki vermek istediğinize emin misiniz?')) socket.emit('grantHost', '${userId}')" title="Yönetici Yap"><i class="fas fa-crown"></i></button>
+                `;
+            }
+            actionsHtml += `</div>`;
         }
-        li.innerHTML = `<span>${user.isHost ? '👑 ' : ''}${user.username} ${isMe ? '(Sen)' : ''}</span><div class="participant-actions">${actionsHtml}</div>`;
+        li.innerHTML = `<div class="participant-header"><span>${user.isHost ? '👑 ' : ''}${user.username} ${isMe ? '(Sen)' : ''}</span></div>${actionsHtml}`;
         participantsList.appendChild(li);
 
         if (!isMe) {
@@ -412,13 +453,32 @@ socket.on('update-users', (usersMap) => {
         }
     });
 
+    // Ses Slider Event Listener
+    document.querySelectorAll('.remote-vol-slider').forEach(slider => {
+        slider.addEventListener('input', (e) => {
+            const targetId = e.target.getAttribute('data-id'); 
+            const videoElem = document.querySelector(`#camera-${targetId} video`);
+            if (videoElem) videoElem.volume = e.target.value / 100;
+        });
+    });
+
+    // Mevcut Mute Butonu Event Listener
     document.querySelectorAll('.mute-remote-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const targetId = e.target.getAttribute('data-id'); const videoElem = document.querySelector(`#camera-${targetId} video`);
+            const targetBtn = e.target.closest('.mute-remote-btn');
+            const targetId = targetBtn.getAttribute('data-id'); 
+            const videoElem = document.querySelector(`#camera-${targetId} video`);
+            const slider = document.querySelector(`.remote-vol-slider[data-id="${targetId}"]`);
             if (locallyMutedUsers.has(targetId)) {
-                locallyMutedUsers.delete(targetId); e.target.className = 'fas fa-volume-up mute-remote-btn'; if (videoElem) videoElem.muted = false;
+                locallyMutedUsers.delete(targetId); targetBtn.innerHTML = '<i class="fas fa-volume-up"></i>'; 
+                targetBtn.classList.remove('muted');
+                if (videoElem) videoElem.muted = false;
+                if (slider) slider.value = 100;
             } else {
-                locallyMutedUsers.add(targetId); e.target.className = 'fas fa-volume-mute mute-remote-btn muted'; if (videoElem) videoElem.muted = true;
+                locallyMutedUsers.add(targetId); targetBtn.innerHTML = '<i class="fas fa-volume-mute"></i>'; 
+                targetBtn.classList.add('muted');
+                if (videoElem) videoElem.muted = true;
+                if (slider) slider.value = 0;
             }
         });
     });
@@ -641,5 +701,32 @@ socket.on('reaction', (data) => {
     el.style.bottom = '10px';
     chatSection.appendChild(el);
     setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+});
+
+
+// HOST ACTIONS & EVENTS
+socket.on("hostChanged", (newHostId) => {
+    currentHostId = newHostId;
+    myId = socket.id;
+    const isHost = (myId === currentHostId);
+    if (isHost) {
+        document.getElementById("youtube-url").disabled = false;
+        document.getElementById("load-btn").disabled = false;
+        document.getElementById("custom-play-btn").style.display = "flex";
+        document.getElementById("progress-bar").style.pointerEvents = "auto";
+        document.getElementById("player-overlay").style.pointerEvents = "auto";
+    }
+});
+
+socket.on("forceMute", () => {
+    if (isMicOn) {
+        document.getElementById("toggle-mic-btn").click();
+    }
+});
+
+socket.on("forceCamOff", () => {
+    if (isCamOn) {
+        document.getElementById("toggle-cam-btn").click();
+    }
 });
 

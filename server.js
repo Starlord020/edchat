@@ -79,10 +79,23 @@ io.on('connection', (socket) => {
             rooms[socket.roomId].updatedAt = Date.now(); rooms[socket.roomId].isPlaying = true;
             io.to(socket.roomId).emit('videoChange', videoId);
             
-            // Sohbet Geçmişine Ekle (Tıklanabilir olması için link formatında)
-            const sysMsg = { user: 'Sistem', text: `Şu an oynatılıyor: https://youtu.be/${videoId}`, color: '#ffb703' };
-            rooms[socket.roomId].messages.push(sysMsg);
-            io.to(socket.roomId).emit('message', sysMsg);
+            // Sohbet Geçmişine Ekle (Video başlığını YouTube oEmbed ile çek)
+            const https = require('https');
+            https.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    let title = '';
+                    try { title = JSON.parse(data).title; } catch(e) {}
+                    const sysMsg = { user: 'Sistem', text: `Şu an oynatılıyor: ${title ? title + ' - ' : ''}https://youtu.be/${videoId}`, color: '#ffb703' };
+                    rooms[socket.roomId].messages.push(sysMsg);
+                    io.to(socket.roomId).emit('message', sysMsg);
+                });
+            }).on('error', () => {
+                const sysMsg = { user: 'Sistem', text: `Şu an oynatılıyor: https://youtu.be/${videoId}`, color: '#ffb703' };
+                rooms[socket.roomId].messages.push(sysMsg);
+                io.to(socket.roomId).emit('message', sysMsg);
+            });
         }
     });
 
@@ -122,3 +135,25 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Sunucu çalışıyor`));
+    socket.on("grantHost", (targetId) => {
+        if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].hostId === socket.id) {
+            rooms[socket.roomId].hostId = targetId;
+            rooms[socket.roomId].users[socket.id].isHost = false;
+            if(rooms[socket.roomId].users[targetId]) rooms[socket.roomId].users[targetId].isHost = true;
+            io.to(socket.roomId).emit("update-users", rooms[socket.roomId].users);
+            io.to(socket.roomId).emit("hostChanged", targetId);
+        }
+    });
+
+    socket.on("forceMute", (targetId) => {
+        if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].hostId === socket.id) {
+            io.to(targetId).emit("forceMute");
+        }
+    });
+
+    socket.on("forceCamOff", (targetId) => {
+        if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].hostId === socket.id) {
+            io.to(targetId).emit("forceCamOff");
+        }
+    });
+
