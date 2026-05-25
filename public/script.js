@@ -30,7 +30,7 @@ chatToggleBtn.addEventListener('click', (e) => {
 });
 chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
-let player; let isUserAction = true; let currentRoomId = null; let myId = null; let currentHostId = null;
+let player; let isUserAction = true; let currentRoomId = null; let myId = null; let currentHostId = null; let isFreeControl = false;
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('oda');
 if (roomParam) { currentRoomId = roomParam; passwordScreen.classList.remove('hidden'); } 
@@ -69,22 +69,8 @@ joinBtn.addEventListener('click', () => {
     if (!username || !password) return alert("Kullanıcı adı ve şifre zorunludur!");
     socket.emit('joinRoom', { roomId: currentRoomId, password, username }, (response) => {
         if (response.success) {
-            myId = response.myId; currentHostId = response.hostId;
-            const isHost = (myId === currentHostId);
-            
-            if (!isHost) {
-                // Disable controls for non-hosts
-                const urlInput = document.getElementById('youtube-url');
-                if (urlInput) urlInput.disabled = true;
-                const loadBtn = document.getElementById('load-btn');
-                if (loadBtn) loadBtn.disabled = true;
-                const playBtn = document.getElementById('custom-play-btn');
-                if (playBtn) playBtn.style.display = 'none';
-                const progBar = document.getElementById('progress-bar');
-                if (progBar) progBar.style.pointerEvents = 'none';
-                const overlay = document.getElementById('player-overlay');
-                if (overlay) overlay.style.pointerEvents = 'none';
-            }
+            myId = response.myId; currentHostId = response.hostId; isFreeControl = response.freeControl;
+            updateVideoControlsUI();
             
             passwordScreen.classList.add('hidden'); mainScreen.classList.remove('hidden');
             chatMessages.innerHTML = ''; 
@@ -98,6 +84,37 @@ joinBtn.addEventListener('click', () => {
         } else alert(response.message);
     });
 });
+
+function updateVideoControlsUI() {
+    const isHost = (myId === currentHostId);
+    const roomControlBtn = document.getElementById('room-control-btn');
+    if (roomControlBtn) {
+        if (isHost) {
+            roomControlBtn.classList.remove('hidden');
+            if (isFreeControl) {
+                roomControlBtn.innerHTML = '<i class="fas fa-unlock"></i> Herkes Açabilir';
+                roomControlBtn.style.color = '#00CED1'; roomControlBtn.style.borderColor = '#00CED1';
+            } else {
+                roomControlBtn.innerHTML = '<i class="fas fa-lock"></i> Sadece Yönetici';
+                roomControlBtn.style.color = '#ffb703'; roomControlBtn.style.borderColor = '#ffb703';
+            }
+        } else {
+            roomControlBtn.classList.add('hidden');
+        }
+    }
+
+    const hasControl = (isHost || isFreeControl);
+    const urlInput = document.getElementById('youtube-url');
+    if (urlInput) urlInput.disabled = !hasControl;
+    const loadBtn = document.getElementById('load-btn');
+    if (loadBtn) loadBtn.disabled = !hasControl;
+    const playBtn = document.getElementById('custom-play-btn');
+    if (playBtn) playBtn.style.display = hasControl ? 'flex' : 'none';
+    const progBar = document.getElementById('progress-bar');
+    if (progBar) progBar.style.pointerEvents = hasControl ? 'auto' : 'none';
+    const overlay = document.getElementById('player-overlay');
+    if (overlay) overlay.style.pointerEvents = hasControl ? 'auto' : 'none';
+}
 
 copyLinkBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(window.location.href); copyLinkBtn.innerHTML = "Kopyalandı!";
@@ -436,7 +453,6 @@ socket.on('update-users', (usersMap) => {
                 actionsHtml += `
                     <button class="host-action-btn force-off" onclick="socket.emit('forceMute', '${userId}')" title="Kişinin Mikrofonunu Kapat"><i class="fas fa-microphone-slash"></i></button>
                     <button class="host-action-btn force-off" onclick="socket.emit('forceCamOff', '${userId}')" title="Kişinin Kamerasını Kapat"><i class="fas fa-video-slash"></i></button>
-                    <button class="host-action-btn crown" onclick="if(confirm('Yetki vermek istediğinize emin misiniz?')) socket.emit('grantHost', '${userId}')" title="Yönetici Yap"><i class="fas fa-crown"></i></button>
                 `;
             }
             actionsHtml += `</div>`;
@@ -705,17 +721,22 @@ socket.on('reaction', (data) => {
 
 
 // HOST ACTIONS & EVENTS
+const roomControlBtn = document.getElementById('room-control-btn');
+if (roomControlBtn) {
+    roomControlBtn.addEventListener('click', () => {
+        socket.emit('toggleFreeControl');
+    });
+}
+
+socket.on("roomControlChanged", (free) => {
+    isFreeControl = free;
+    updateVideoControlsUI();
+});
+
 socket.on("hostChanged", (newHostId) => {
     currentHostId = newHostId;
     myId = socket.id;
-    const isHost = (myId === currentHostId);
-    if (isHost) {
-        document.getElementById("youtube-url").disabled = false;
-        document.getElementById("load-btn").disabled = false;
-        document.getElementById("custom-play-btn").style.display = "flex";
-        document.getElementById("progress-bar").style.pointerEvents = "auto";
-        document.getElementById("player-overlay").style.pointerEvents = "auto";
-    }
+    updateVideoControlsUI();
 });
 
 socket.on("forceMute", () => {
