@@ -74,11 +74,16 @@ joinBtn.addEventListener('click', () => {
             
             if (!isHost) {
                 // Disable controls for non-hosts
-                document.getElementById('yt-url-input').disabled = true;
-                document.getElementById('load-btn').disabled = true;
-                document.getElementById('custom-play-btn').style.display = 'none';
-                document.getElementById('progress-bar').style.pointerEvents = 'none';
-                document.getElementById('player-overlay').style.pointerEvents = 'none';
+                const urlInput = document.getElementById('youtube-url');
+                if (urlInput) urlInput.disabled = true;
+                const loadBtn = document.getElementById('load-btn');
+                if (loadBtn) loadBtn.disabled = true;
+                const playBtn = document.getElementById('custom-play-btn');
+                if (playBtn) playBtn.style.display = 'none';
+                const progBar = document.getElementById('progress-bar');
+                if (progBar) progBar.style.pointerEvents = 'none';
+                const overlay = document.getElementById('player-overlay');
+                if (overlay) overlay.style.pointerEvents = 'none';
             }
             
             passwordScreen.classList.add('hidden'); mainScreen.classList.remove('hidden');
