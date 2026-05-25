@@ -192,6 +192,29 @@ function initCustomControls() {
     }, 500);
     
     volumeBar.value = player.getVolume(); updateBarColor(volumeBar);
+
+    // Auto-hide controls logic
+    let controlsTimeout;
+    const playerWrapper = document.querySelector('.player-wrapper');
+    const customControls = document.getElementById('custom-video-controls');
+    
+    function showControls() {
+        customControls.classList.add('active');
+        clearTimeout(controlsTimeout);
+        controlsTimeout = setTimeout(() => {
+            customControls.classList.remove('active');
+        }, 3000);
+    }
+    
+    playerWrapper.addEventListener('mousemove', showControls);
+    playerWrapper.addEventListener('click', showControls);
+    playerWrapper.addEventListener('touchstart', showControls);
+    playerWrapper.addEventListener('mouseleave', () => {
+        clearTimeout(controlsTimeout);
+        customControls.classList.remove('active');
+    });
+    
+    showControls(); // show once initially
 }
 
 // --- WEBRTC ---
