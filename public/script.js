@@ -39,7 +39,16 @@ else { createScreen.classList.remove('hidden'); }
 function appendMessage(data) {
     const div = document.createElement('div');
     div.classList.add('message'); div.style.borderLeftColor = data.color;
-    div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${data.text}</div>`;
+
+    let text = data.text;
+    const match = text.match(/(https?:\/\/)?(www\.)?(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?\s]*)/);
+    let playBtnHtml = '';
+    if (match && match[4].length === 11) {
+        playBtnHtml = `<div style="margin-top: 5px;"><button class="outline-btn" style="padding: 2px 8px; font-size:12px; height:auto; display:inline-block;" onclick="socket.emit('loadVideo', '${match[4]}')"><i class="fas fa-play"></i> Oynat</button></div>`;
+        text = text.replace(match[0], `<a href="${match[0].startsWith('http') ? match[0] : 'https://' + match[0]}" target="_blank" style="color:#00CED1; text-decoration:none;">${match[0]}</a>`);
+    }
+
+    div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${text}</div>${playBtnHtml}`;
     chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
     
     if (chatPanel.classList.contains('chat-closed')) {
@@ -130,9 +139,42 @@ async function getMediaStream() {
 }
 
 function emitMediaState() {
-    socket.emit('mediaState', { isMicOn, isCamOn: isCamOn || isScreenSharing });
+    socket.emit('mediaState', { isMicOn, isCamOn: isCamOn || isScreenSharing, isScreenSharing });
     if (!isCamOn && !isScreenSharing) localCameraBox.classList.add('hidden'); 
     else localCameraBox.classList.remove('hidden');
+}
+
+function manageScreenshareView() {
+    const mainScreenshare = document.getElementById('main-screenshare');
+    const playerDiv = document.getElementById('player');
+    
+    let sharingUser = null;
+    if (isScreenSharing && screenStream) {
+        sharingUser = { id: socket.id, stream: screenStream };
+    } else {
+        for (let userId in currentUsers) {
+            if (currentUsers[userId].isScreenSharing) {
+                const box = document.getElementById(`camera-${userId}`);
+                if (box) {
+                    const vid = box.querySelector('video');
+                    if (vid && vid.srcObject) {
+                        sharingUser = { id: userId, stream: vid.srcObject };
+                        box.classList.add('hidden');
+                    }
+                }
+            }
+        }
+    }
+
+    if (sharingUser) {
+        if (mainScreenshare.srcObject !== sharingUser.stream) mainScreenshare.srcObject = sharingUser.stream;
+        mainScreenshare.classList.remove('hidden');
+        playerDiv.style.visibility = 'hidden'; 
+    } else {
+        mainScreenshare.srcObject = null;
+        mainScreenshare.classList.add('hidden');
+        playerDiv.style.visibility = 'visible'; 
+    }
 }
 
 toggleMicBtn.addEventListener('click', () => {
@@ -170,6 +212,7 @@ toggleScreenBtn.addEventListener('click', async () => {
                 if (sender) sender.replaceTrack(screenTrack);
             }
             emitMediaState();
+            manageScreenshareView();
             screenTrack.onended = () => { stopScreenSharing(); };
         } catch (err) { console.error("Ekran paylaşılamadı:", err); }
     } else { stopScreenSharing(); }
@@ -188,6 +231,7 @@ function stopScreenSharing() {
         if (sender) sender.replaceTrack(camTrack);
     }
     emitMediaState();
+    manageScreenshareView();
 }
 
 participantsBtn.addEventListener('click', () => { participantsDropdown.classList.toggle('hidden'); });
@@ -225,6 +269,8 @@ socket.on('update-users', (usersMap) => {
             }
         });
     });
+    
+    setTimeout(manageScreenshareView, 200);
 });
 
 socket.on('user-joined', (userId) => { peers[userId] = createPeerConnection(userId, true); });
@@ -258,12 +304,14 @@ function addRemoteVideo(userId, stream) {
     const vid = document.createElement('video'); vid.className = 'remote-video'; vid.autoplay = true; vid.playsInline = true; vid.srcObject = stream;
     if (locallyMutedUsers.has(userId)) vid.muted = true;
     box.appendChild(vid); cameraBoxesContainer.appendChild(box);
+    setTimeout(manageScreenshareView, 100);
 }
 
 socket.on('user-left', (userId) => {
     if (peers[userId]) { peers[userId].close(); delete peers[userId]; }
     const box = document.getElementById(`camera-${userId}`); if (box) box.remove();
     locallyMutedUsers.delete(userId);
+    manageScreenshareView();
 });
 
 window.addEventListener('load', getMediaStream);

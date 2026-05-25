@@ -51,6 +51,7 @@ io.on('connection', (socket) => {
         if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].users[socket.id]) {
             rooms[socket.roomId].users[socket.id].isMicOn = state.isMicOn;
             rooms[socket.roomId].users[socket.id].isCamOn = state.isCamOn;
+            rooms[socket.roomId].users[socket.id].isScreenSharing = state.isScreenSharing || false;
             io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users);
         }
     });
