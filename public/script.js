@@ -1,6 +1,6 @@
 const socket = io();
 
-// UI Elements
+// UI Elementleri
 const createScreen = document.getElementById('create-screen');
 const passwordScreen = document.getElementById('password-screen');
 const mainScreen = document.getElementById('main-screen');
@@ -12,23 +12,25 @@ const joinBtn = document.getElementById('join-btn');
 const msgInput = document.getElementById('msg-input');
 const sendBtn = document.getElementById('send-btn');
 const chatMessages = document.getElementById('chat-messages');
+const ytUrlInput = document.getElementById('youtube-url');
+const loadBtn = document.getElementById('load-btn');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// Search & W2G UI
-const searchInput = document.getElementById('youtube-search-input');
-const searchBtn = document.getElementById('search-btn');
-const searchDropdown = document.getElementById('search-results-dropdown');
-const playlistContainer = document.getElementById('playlist-container');
-const historyContainer = document.getElementById('history-container');
-const tabPlaylist = document.getElementById('tab-playlist');
-const tabHistory = document.getElementById('tab-history');
-const hostBadge = document.getElementById('host-badge');
-const toggleLockBtn = document.getElementById('toggle-lock-btn');
+// Sohbet Baloncuğu
+const chatToggleBtn = document.getElementById('chat-toggle-btn');
+const chatCloseBtn = document.getElementById('chat-close-btn');
+const chatPanel = document.getElementById('chat-panel');
+const unreadBadge = document.getElementById('unread-badge');
+let unreadCount = 0;
+
+chatToggleBtn.addEventListener('click', () => {
+    chatPanel.classList.toggle('chat-closed');
+    if (!chatPanel.classList.contains('chat-closed')) { unreadCount = 0; unreadBadge.classList.add('hidden'); }
+});
+chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
 let player; let isUserAction = true; let currentRoomId = null;
-let myUserId = null; let currentHostId = null; let isLocked = false;
-
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('oda');
 if (roomParam) { currentRoomId = roomParam; passwordScreen.classList.remove('hidden'); } 
@@ -39,6 +41,12 @@ function appendMessage(data) {
     div.classList.add('message'); div.style.borderLeftColor = data.color;
     div.innerHTML = `<div class="user" style="color: ${data.color}">${data.user}</div><div>${data.text}</div>`;
     chatMessages.appendChild(div); chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    if (chatPanel.classList.contains('chat-closed')) {
+        chatToggleBtn.style.transform = 'scale(1.2)';
+        setTimeout(() => chatToggleBtn.style.transform = 'scale(1)', 200);
+        unreadCount++; unreadBadge.innerText = unreadCount; unreadBadge.classList.remove('hidden');
+    }
 }
 
 createBtn.addEventListener('click', () => {
@@ -55,12 +63,6 @@ joinBtn.addEventListener('click', () => {
             passwordScreen.classList.add('hidden'); mainScreen.classList.remove('hidden');
             chatMessages.innerHTML = ''; 
             if (response.messages) response.messages.forEach(msg => appendMessage(msg));
-            
-            myUserId = socket.id;
-            updateHostStatus(response.hostId, response.locked);
-            renderPlaylist(response.playlist);
-            renderHistory(response.history);
-
             if (player && player.loadVideoById) {
                 isUserAction = false;
                 if (response.isPlaying) player.loadVideoById(response.videoId, response.time);
@@ -83,173 +85,23 @@ sendBtn.addEventListener('click', () => {
 msgInput.addEventListener('keypress', e => e.key === 'Enter' && sendBtn.click());
 socket.on('message', appendMessage);
 
-// W2G: Tabs
-tabPlaylist.addEventListener('click', () => {
-    tabPlaylist.classList.add('active'); tabHistory.classList.remove('active');
-    playlistContainer.classList.remove('hidden'); historyContainer.classList.add('hidden');
-});
-tabHistory.addEventListener('click', () => {
-    tabHistory.classList.add('active'); tabPlaylist.classList.remove('active');
-    historyContainer.classList.remove('hidden'); playlistContainer.classList.add('hidden');
-});
-
-// W2G: Search
-let searchTimeout;
-searchInput.addEventListener('input', () => {
-    clearTimeout(searchTimeout);
-    const query = searchInput.value.trim();
-    if (!query) { searchDropdown.classList.add('hidden'); return; }
-    
-    // Check if it's a direct youtube link
-    const match = query.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
-    if (match && match[2].length === 11) {
-        // Automatically add to queue
-        socket.emit('addToPlaylist', { id: match[2], title: 'Link ile Eklendi', author: '', image: `https://img.youtube.com/vi/${match[2]}/mqdefault.jpg` });
-        searchInput.value = '';
-        return;
-    }
-
-    searchTimeout = setTimeout(() => {
-        socket.emit('searchVideo', query, (res) => {
-            if (res.success && res.videos.length > 0) {
-                searchDropdown.innerHTML = '';
-                res.videos.forEach(v => {
-                    const item = document.createElement('div');
-                    item.className = 'search-result-item';
-                    item.innerHTML = `
-                        <img src="${v.image}" alt="">
-                        <div class="search-result-info">
-                            <div class="search-result-title">${v.title}</div>
-                            <div class="search-result-author">${v.author} • ${v.duration}</div>
-                        </div>
-                        <button class="add-to-queue-btn">Sıraya Ekle</button>
-                    `;
-                    item.querySelector('.add-to-queue-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        socket.emit('addToPlaylist', v);
-                        searchDropdown.classList.add('hidden');
-                        searchInput.value = '';
-                    });
-                    item.addEventListener('click', () => {
-                        socket.emit('addToPlaylist', v);
-                        searchDropdown.classList.add('hidden');
-                        searchInput.value = '';
-                    });
-                    searchDropdown.appendChild(item);
-                });
-                searchDropdown.classList.remove('hidden');
-            }
-        });
-    }, 500);
-});
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.w2g-search-header')) {
-        searchDropdown.classList.add('hidden');
-    }
-});
-
-// W2G: Host & Lock
-function updateHostStatus(hostId, locked) {
-    currentHostId = hostId;
-    isLocked = locked;
-    const isMeHost = (socket.id === hostId);
-    
-    if (isMeHost) {
-        hostBadge.classList.remove('hidden');
-        toggleLockBtn.classList.remove('hidden');
-        toggleLockBtn.innerHTML = isLocked ? '<i class="fas fa-lock"></i>' : '<i class="fas fa-unlock"></i>';
-        toggleLockBtn.classList.toggle('muted', isLocked);
-    } else {
-        hostBadge.classList.add('hidden');
-        toggleLockBtn.classList.add('hidden');
-    }
-}
-
-toggleLockBtn.addEventListener('click', () => {
-    socket.emit('toggleLock');
-});
-
-socket.on('hostChanged', (newHostId) => { updateHostStatus(newHostId, isLocked); });
-socket.on('lockStatusChanged', (locked) => { updateHostStatus(currentHostId, locked); });
-
-// W2G: Playlist & History UI
-function renderPlaylist(playlist) {
-    playlistContainer.innerHTML = '';
-    playlist.forEach((v, index) => {
-        const item = document.createElement('div');
-        item.className = 'playlist-item';
-        item.innerHTML = `
-            <img src="${v.image || `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`}">
-            <div class="playlist-item-info">
-                <div class="playlist-item-title">${v.title}</div>
-                <div class="playlist-item-author">${v.author || ''}</div>
-            </div>
-        `;
-        if (socket.id === currentHostId || !isLocked) {
-            const btn = document.createElement('button');
-            btn.className = 'remove-playlist-btn';
-            btn.innerHTML = '<i class="fas fa-times"></i>';
-            btn.onclick = () => socket.emit('removeFromPlaylist', index);
-            item.appendChild(btn);
-        }
-        playlistContainer.appendChild(item);
-    });
-}
-
-function renderHistory(history) {
-    historyContainer.innerHTML = '';
-    history.forEach(v => {
-        const item = document.createElement('div');
-        item.className = 'playlist-item';
-        item.style.opacity = '0.6';
-        item.innerHTML = `
-            <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg">
-            <div class="playlist-item-info">
-                <div class="playlist-item-title">Video ID: ${v.id}</div>
-            </div>
-            <button class="add-to-queue-btn" title="Tekrar Çal" style="position: absolute; right: 10px; top: 15px;"><i class="fas fa-redo"></i></button>
-        `;
-        item.querySelector('.add-to-queue-btn').onclick = () => socket.emit('addToPlaylist', {id: v.id, title: 'Geçmişten Eklendi', image: `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`});
-        historyContainer.appendChild(item);
-    });
-}
-
-socket.on('playlistUpdated', renderPlaylist);
-socket.on('historyUpdated', renderHistory);
-
-
-// YOUTUBE PLAYER CONTROLS
+// YOUTUBE KONTROLLERİ
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', { height: '100%', width: '100%', videoId: '', playerVars: { 'autoplay': 0, 'controls': 1 }, events: { 'onStateChange': onPlayerStateChange } });
 }
-
 function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.ENDED) {
-        if (socket.id === currentHostId || !isLocked) {
-            socket.emit('playNext');
-        }
-    }
     if (!isUserAction) return;
     if (event.data == YT.PlayerState.PLAYING) socket.emit('playVideo', player.getCurrentTime());
     else if (event.data == YT.PlayerState.PAUSED) socket.emit('pauseVideo', player.getCurrentTime());
 }
-
-socket.on('videoChange', (videoId) => { 
-    if(player && player.loadVideoById) { 
-        isUserAction = false; 
-        if(videoId) {
-            player.loadVideoById(videoId); 
-        } else {
-            player.stopVideo(); // Stop if empty queue
-        }
-        setTimeout(() => isUserAction = true, 1000); 
-    } 
+loadBtn.addEventListener('click', () => {
+    const url = ytUrlInput.value; const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+    if (videoId) { socket.emit('loadVideo', videoId); ytUrlInput.value = ''; } else alert("Geçerli bir YouTube linki girin!");
 });
+socket.on('videoChange', (videoId) => { if(player && player.loadVideoById) { isUserAction = false; player.loadVideoById(videoId); setTimeout(() => isUserAction = true, 1000); } });
 socket.on('videoPlay', (time) => { if(player && player.playVideo) { isUserAction = false; if (Math.abs(player.getCurrentTime() - time) > 2) player.seekTo(time); player.playVideo(); setTimeout(() => isUserAction = true, 500); } });
 socket.on('videoPause', () => { if(player && player.pauseVideo) { isUserAction = false; player.pauseVideo(); setTimeout(() => isUserAction = true, 500); } });
-
 
 // --- WEBRTC ---
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
@@ -351,15 +203,7 @@ socket.on('update-users', (usersMap) => {
             const isMuted = locallyMutedUsers.has(userId);
             actionsHtml = `<i class="fas ${isMuted ? 'fa-volume-mute muted' : 'fa-volume-up'} mute-remote-btn" data-id="${userId}" title="Sesi Aç/Kapat"></i>`;
         }
-        
-        let hostIcon = (userId === currentHostId) ? '<i class="fas fa-crown" style="color:gold; margin-left:5px;"></i>' : '';
-        
-        // Host can set others as host
-        if (!isMe && socket.id === currentHostId) {
-            actionsHtml += `<button class="outline-btn" style="padding: 2px 5px; height: auto; margin-left: 10px;" onclick="socket.emit('setHost', '${userId}')">Host Yap</button>`;
-        }
-
-        li.innerHTML = `<span>${user.username} ${isMe ? '(Sen)' : ''} ${hostIcon}</span><div class="participant-actions" style="display:flex; align-items:center;">${actionsHtml}</div>`;
+        li.innerHTML = `<span>${user.username} ${isMe ? '(Sen)' : ''}</span><div class="participant-actions">${actionsHtml}</div>`;
         participantsList.appendChild(li);
 
         if (!isMe) {
@@ -444,6 +288,7 @@ headerToggleBtn.addEventListener('click', () => {
     mainHeader.classList.toggle('collapsed');
     if (mainHeader.classList.contains('collapsed')) {
         headerToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        if (window.innerWidth <= 768) chatPanel.classList.add('chat-closed');
     } else {
         headerToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
     }
@@ -454,6 +299,7 @@ function handleOrientationChange() {
     const isMobile = window.innerWidth <= 950; 
     if (isLandscape && isMobile) {
         if (!mainHeader.classList.contains('collapsed')) { mainHeader.classList.add('collapsed'); headerToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>'; }
+        if (!chatPanel.classList.contains('chat-closed')) chatPanel.classList.add('chat-closed');
     } else if (!isLandscape && isMobile) {
         if (mainHeader.classList.contains('collapsed')) { mainHeader.classList.remove('collapsed'); headerToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>'; }
     }
