@@ -197,7 +197,7 @@ toggleCamBtn.addEventListener('click', () => {
 toggleScreenBtn.addEventListener('click', async () => {
     if (!isScreenSharing) {
         try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
             isScreenSharing = true;
             if (isCamOn) {
                 isCamOn = false; localStream.getVideoTracks()[0].enabled = false;
@@ -206,14 +206,20 @@ toggleScreenBtn.addEventListener('click', async () => {
             toggleScreenBtn.classList.add('muted'); toggleScreenBtn.innerHTML = '<i class="fas fa-times-circle"></i>'; 
             localVideo.srcObject = screenStream; localVideo.style.display = 'block';
 
-            const screenTrack = screenStream.getVideoTracks()[0];
+            const screenVideoTrack = screenStream.getVideoTracks()[0];
+            const screenAudioTrack = screenStream.getAudioTracks()[0];
             for (let userId in peers) {
-                const sender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) sender.replaceTrack(screenTrack);
+                const videoSender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
+                if (videoSender) videoSender.replaceTrack(screenVideoTrack);
+                
+                if (screenAudioTrack) {
+                    const audioSender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'audio');
+                    if (audioSender) audioSender.replaceTrack(screenAudioTrack);
+                }
             }
             emitMediaState();
             manageScreenshareView();
-            screenTrack.onended = () => { stopScreenSharing(); };
+            screenVideoTrack.onended = () => { stopScreenSharing(); };
         } catch (err) { console.error("Ekran paylaşılamadı:", err); }
     } else { stopScreenSharing(); }
 });
@@ -225,10 +231,14 @@ function stopScreenSharing() {
     toggleScreenBtn.classList.remove('muted'); toggleScreenBtn.innerHTML = '<i class="fas fa-desktop"></i>';
     localVideo.srcObject = localStream; localVideo.style.display = 'none';
 
-    const camTrack = localStream.getVideoTracks()[0];
+    const camVideoTrack = localStream.getVideoTracks()[0];
+    const camAudioTrack = localStream.getAudioTracks()[0];
     for (let userId in peers) {
-        const sender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(camTrack);
+        const videoSender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'video');
+        if (videoSender) videoSender.replaceTrack(camVideoTrack);
+
+        const audioSender = peers[userId].getSenders().find(s => s.track && s.track.kind === 'audio');
+        if (audioSender) audioSender.replaceTrack(camAudioTrack);
     }
     emitMediaState();
     manageScreenshareView();
