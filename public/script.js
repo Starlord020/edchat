@@ -195,7 +195,7 @@ function initCustomControls() {
 
     // Auto-hide controls logic
     let controlsTimeout;
-    const playerWrapper = document.querySelector('.player-wrapper');
+    const videoSection = document.querySelector('.video-section');
     const customControls = document.getElementById('custom-video-controls');
     
     function showControls() {
@@ -206,13 +206,17 @@ function initCustomControls() {
         }, 3000);
     }
     
-    playerWrapper.addEventListener('mousemove', showControls);
-    playerWrapper.addEventListener('click', showControls);
-    playerWrapper.addEventListener('touchstart', showControls);
-    playerWrapper.addEventListener('mouseleave', () => {
+    videoSection.addEventListener('mousemove', showControls);
+    videoSection.addEventListener('click', showControls);
+    videoSection.addEventListener('touchstart', showControls);
+    videoSection.addEventListener('mouseleave', () => {
         clearTimeout(controlsTimeout);
         customControls.classList.remove('active');
     });
+    
+    // Prevent hiding while hovering over the controls themselves
+    customControls.addEventListener('mouseenter', () => clearTimeout(controlsTimeout));
+    customControls.addEventListener('mousemove', showControls);
     
     // Allow clicking the video to play/pause since overlay blocks iframe
     const playerOverlay = document.getElementById('player-overlay');
