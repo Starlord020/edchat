@@ -131,10 +131,6 @@ io.on('connection', (socket) => {
             io.to(socket.roomId).emit('update-users', rooms[socket.roomId].users);
         }
     });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Sunucu çalışıyor`));
     socket.on("grantHost", (targetId) => {
         if (socket.roomId && rooms[socket.roomId] && rooms[socket.roomId].hostId === socket.id) {
             rooms[socket.roomId].hostId = targetId;
@@ -157,3 +153,7 @@ server.listen(PORT, () => console.log(`Sunucu çalışıyor`));
         }
     });
 
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Sunucu çalışıyor`));
