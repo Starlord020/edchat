@@ -97,12 +97,19 @@
                     <h3>Sohbet</h3>
                     <button id="chat-close-btn"><i class="fas fa-times"></i></button>
                 </div>
-                <div class="chat-section">
+                <div class="chat-section" style="position: relative;">
                     <div id="chat-messages" class="chat-messages"></div>
-                    <div class="chat-input">
-                        <input type="text" id="msg-input" placeholder="Mesaj yazın..." autocomplete="off">
-                        <button id="send-btn">Gönder</button>
+                </div>
+                <div class="chat-input" style="position: relative;">
+                    <div id="emoji-picker-menu" class="hidden" style="position: absolute; bottom: 65px; right: 20px; background: #0b1111; padding: 10px; border: 1px solid #1a3333; border-radius: 12px; display: flex; gap: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.7); z-index: 200;">
+                        <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
+                        <button class="reaction-btn" onclick="sendReaction('😂')">😂</button>
+                        <button class="reaction-btn" onclick="sendReaction('🔥')">🔥</button>
+                        <button class="reaction-btn" onclick="sendReaction('👏')">👏</button>
                     </div>
+                    <input type="text" id="msg-input" placeholder="Mesajınız...">
+                    <button id="emoji-toggle-btn" style="background: none; border: none; color: #555; font-size: 22px; cursor: pointer; margin-left: 8px; transition: color 0.3s;"><i class="fas fa-smile"></i></button>
+                    <button id="send-btn">Gönder</button>
                 </div>
             </div>
         </div>

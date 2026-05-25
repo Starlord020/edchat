@@ -16,7 +16,7 @@ io.on('connection', (socket) => {
     socket.on('createRoom', (password, callback) => {
         const roomId = Math.random().toString(36).substring(2, 8);
         rooms[roomId] = {
-            password: password, videoId: 'dQw4w9WgXcQ', time: 0, 
+            password: password, videoId: 'dQw4w9WgXcQ', time: 0, hostId: socket.id,
             updatedAt: Date.now(), isPlaying: false, messages: [], users: {}
         };
         callback(roomId);
@@ -31,12 +31,12 @@ io.on('connection', (socket) => {
         socket.username = username;
         socket.roomId = roomId;
 
-        room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false };
+        room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false, isHost: room.hostId === socket.id };
 
         let currentRealTime = room.time;
         if (room.isPlaying) currentRealTime += (Date.now() - room.updatedAt) / 1000;
 
-        callback({ success: true, videoId: room.videoId, time: currentRealTime, isPlaying: room.isPlaying, messages: room.messages });
+        callback({ success: true, videoId: room.videoId, time: currentRealTime, isPlaying: room.isPlaying, messages: room.messages, hostId: room.hostId, myId: socket.id });
 
         const sysMsg = { user: 'Sistem', text: `${username} odaya katıldı.`, color: '#00CED1' };
         room.messages.push(sysMsg);
@@ -68,14 +68,21 @@ io.on('connection', (socket) => {
 
     socket.on('loadVideo', (videoId) => {
         if (socket.roomId && rooms[socket.roomId]) {
+            if (rooms[socket.roomId].hostId !== socket.id) return; // Sadece host
             rooms[socket.roomId].videoId = videoId; rooms[socket.roomId].time = 0;
             rooms[socket.roomId].updatedAt = Date.now(); rooms[socket.roomId].isPlaying = true;
             io.to(socket.roomId).emit('videoChange', videoId);
+            
+            // Sohbet Geçmişine Ekle (Tıklanabilir olması için link formatında)
+            const sysMsg = { user: 'Sistem', text: `Şu an oynatılıyor: https://youtu.be/${videoId}`, color: '#ffb703' };
+            rooms[socket.roomId].messages.push(sysMsg);
+            io.to(socket.roomId).emit('message', sysMsg);
         }
     });
 
     socket.on('playVideo', (time) => {
         if (socket.roomId && rooms[socket.roomId]) {
+            if (rooms[socket.roomId].hostId !== socket.id) return;
             rooms[socket.roomId].time = time; rooms[socket.roomId].updatedAt = Date.now(); rooms[socket.roomId].isPlaying = true;
             socket.to(socket.roomId).emit('videoPlay', time);
         }
@@ -83,8 +90,15 @@ io.on('connection', (socket) => {
 
     socket.on('pauseVideo', (time) => {
         if (socket.roomId && rooms[socket.roomId]) {
+            if (rooms[socket.roomId].hostId !== socket.id) return;
             rooms[socket.roomId].time = time; rooms[socket.roomId].updatedAt = Date.now(); rooms[socket.roomId].isPlaying = false;
             socket.to(socket.roomId).emit('videoPause');
+        }
+    });
+    
+    socket.on('reaction', (emoji) => {
+        if (socket.roomId && rooms[socket.roomId]) {
+            io.to(socket.roomId).emit('reaction', { emoji: emoji, fromId: socket.id, username: socket.username });
         }
     });
 

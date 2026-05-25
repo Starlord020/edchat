@@ -30,7 +30,7 @@ chatToggleBtn.addEventListener('click', (e) => {
 });
 chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
-let player; let isUserAction = true; let currentRoomId = null;
+let player; let isUserAction = true; let currentRoomId = null; let myId = null; let currentHostId = null;
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('oda');
 if (roomParam) { currentRoomId = roomParam; passwordScreen.classList.remove('hidden'); } 
@@ -69,6 +69,18 @@ joinBtn.addEventListener('click', () => {
     if (!username || !password) return alert("Kullanıcı adı ve şifre zorunludur!");
     socket.emit('joinRoom', { roomId: currentRoomId, password, username }, (response) => {
         if (response.success) {
+            myId = response.myId; currentHostId = response.hostId;
+            const isHost = (myId === currentHostId);
+            
+            if (!isHost) {
+                // Disable controls for non-hosts
+                document.getElementById('yt-url-input').disabled = true;
+                document.getElementById('load-btn').disabled = true;
+                document.getElementById('custom-play-btn').style.display = 'none';
+                document.getElementById('progress-bar').style.pointerEvents = 'none';
+                document.getElementById('player-overlay').style.pointerEvents = 'none';
+            }
+            
             passwordScreen.classList.add('hidden'); mainScreen.classList.remove('hidden');
             chatMessages.innerHTML = ''; 
             if (response.messages) response.messages.forEach(msg => appendMessage(msg));
@@ -383,7 +395,7 @@ socket.on('update-users', (usersMap) => {
             const isMuted = locallyMutedUsers.has(userId);
             actionsHtml = `<i class="fas ${isMuted ? 'fa-volume-mute muted' : 'fa-volume-up'} mute-remote-btn" data-id="${userId}" title="Sesi Aç/Kapat"></i>`;
         }
-        li.innerHTML = `<span>${user.username} ${isMe ? '(Sen)' : ''}</span><div class="participant-actions">${actionsHtml}</div>`;
+        li.innerHTML = `<span>${user.isHost ? '👑 ' : ''}${user.username} ${isMe ? '(Sen)' : ''}</span><div class="participant-actions">${actionsHtml}</div>`;
         participantsList.appendChild(li);
 
         if (!isMe) {
@@ -595,4 +607,34 @@ function endDragChat() {
     document.removeEventListener("mouseup", endDragChat);
     document.removeEventListener("touchend", endDragChat);
 }
+
+
+// --- REACTIONS ---
+const emojiToggleBtn = document.getElementById('emoji-toggle-btn');
+const emojiPickerMenu = document.getElementById('emoji-picker-menu');
+if (emojiToggleBtn) {
+    emojiToggleBtn.addEventListener('click', () => {
+        emojiPickerMenu.classList.toggle('hidden');
+        emojiToggleBtn.style.color = emojiPickerMenu.classList.contains('hidden') ? '#555' : '#00CED1';
+    });
+}
+
+function sendReaction(emoji) { 
+    socket.emit('reaction', emoji); 
+    if(emojiPickerMenu) {
+        emojiPickerMenu.classList.add('hidden');
+        emojiToggleBtn.style.color = '#555';
+    }
+}
+socket.on('reaction', (data) => {
+    const chatSection = document.querySelector('.chat-section');
+    if (!chatSection) return;
+    const el = document.createElement('div');
+    el.className = 'flying-emoji';
+    el.innerText = data.emoji;
+    el.style.left = Math.random() * 60 + 20 + '%';
+    el.style.bottom = '10px';
+    chatSection.appendChild(el);
+    setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+});
 
