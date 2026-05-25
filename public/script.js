@@ -214,6 +214,22 @@ function initCustomControls() {
         customControls.classList.remove('active');
     });
     
+    // Allow clicking the video to play/pause since overlay blocks iframe
+    const playerOverlay = document.getElementById('player-overlay');
+    if (playerOverlay) {
+        playerOverlay.addEventListener('click', () => {
+            if (player && player.getPlayerState) {
+                if (player.getPlayerState() == YT.PlayerState.PLAYING) {
+                    player.pauseVideo();
+                    playIcon.className = 'fas fa-play';
+                } else {
+                    player.playVideo();
+                    playIcon.className = 'fas fa-pause';
+                }
+            }
+        });
+    }
+    
     showControls(); // show once initially
 }
 
@@ -523,6 +539,7 @@ function startDragChat(e) {
     const rect = chatToggleBtn.getBoundingClientRect();
     currentRight = window.innerWidth - rect.right;
     currentBottom = window.innerHeight - rect.bottom;
+    chatToggleBtn.style.transition = 'none'; // REMOVE TRANSITION FOR SMOOTH DRAG
     
     document.addEventListener("mousemove", dragChat);
     document.addEventListener("touchmove", dragChat, {passive: false});
@@ -568,6 +585,7 @@ function dragChat(e) {
 
 function endDragChat() {
     isDraggingChat = false;
+    chatToggleBtn.style.transition = '0.3s'; // RESTORE TRANSITION
     document.removeEventListener("mousemove", dragChat);
     document.removeEventListener("touchmove", dragChat);
     document.removeEventListener("mouseup", endDragChat);
