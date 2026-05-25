@@ -168,6 +168,7 @@ function manageScreenshareView() {
 
     if (sharingUser) {
         if (mainScreenshare.srcObject !== sharingUser.stream) mainScreenshare.srcObject = sharingUser.stream;
+        mainScreenshare.muted = (sharingUser.id === socket.id);
         mainScreenshare.classList.remove('hidden');
         playerDiv.style.visibility = 'hidden'; 
     } else {

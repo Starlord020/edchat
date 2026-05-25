@@ -80,7 +80,9 @@ body { background-color: #0b1111; color: white; height: 100vh; height: 100dvh; o
 @media (max-width: 768px) {
     .header { flex-wrap: wrap; padding: 10px; justify-content: center; gap: 10px; }
     .header h2 { display: none; }
-    .video-controls-header { width: 100%; max-width: 100%; margin: 0; }
+    .video-controls-header { width: 100%; max-width: 100%; margin: 0; position: relative; z-index: 2005; }
+    .top-hover-area { width: 60px; height: 30px; pointer-events: none; }
+    #header-toggle-btn { pointer-events: auto; opacity: 0.8; }
     .hide-mobile { display: none; }
     .show-mobile-inline { display: inline-block; }
     .chat-floating { width: 90%; right: 5%; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
