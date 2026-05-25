@@ -432,7 +432,18 @@ function stopScreenSharing() {
     manageScreenshareView();
 }
 
-participantsBtn.addEventListener('click', () => { participantsDropdown.classList.toggle('hidden'); });
+participantsBtn.addEventListener('click', (e) => { 
+    e.stopPropagation();
+    participantsDropdown.classList.toggle('hidden'); 
+});
+
+document.addEventListener('click', (e) => {
+    if (!participantsDropdown.classList.contains('hidden')) {
+        if (!participantsDropdown.contains(e.target) && !participantsBtn.contains(e.target)) {
+            participantsDropdown.classList.add('hidden');
+        }
+    }
+});
 
 socket.on('update-users', (usersMap) => {
     currentUsers = usersMap;

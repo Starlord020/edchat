@@ -125,3 +125,19 @@ body { background-color: #0b1111; color: white; height: 100vh; height: 100dvh; o
 .remote-vol-slider { flex-grow: 1; height: 4px; -webkit-appearance: none; background: #555; border-radius: 2px; }
 .remote-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #00CED1; cursor: pointer; }
 
+
+@media (max-width: 768px) {
+    .dropdown-menu {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 350px;
+        max-height: 80vh;
+        overflow-y: auto;
+        z-index: 9999;
+        box-shadow: 0 0 0 100vw rgba(0,0,0,0.7); /* Background overlay */
+    }
+}
+
