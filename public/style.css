@@ -141,3 +141,9 @@ body { background-color: #0b1111; color: white; height: 100vh; height: 100dvh; o
     }
 }
 
+
+/* Logo Styles */
+.logo-link { display: flex; align-items: center; justify-content: center; text-decoration: none; outline: none; }
+.site-logo { max-height: 40px; width: auto; object-fit: contain; filter: drop-shadow(0 0 8px rgba(0,206,209,0.6)); transition: 0.3s; }
+.site-logo:hover { filter: drop-shadow(0 0 12px rgba(0,206,209,0.9)); transform: scale(1.05); }
+
