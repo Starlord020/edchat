@@ -210,6 +210,13 @@ function initCustomControls() {
         el.style.background = `linear-gradient(to right, #6b7a8a ${el.value}%, #444 ${el.value}%)`;
     }
 
+    // Default Volume 15%
+    player.unMute();
+    player.setVolume(15);
+    volumeBar.value = 15;
+    muteIcon.className = 'fas fa-volume-down';
+    updateBarColor(volumeBar);
+
     if(uiInterval) clearInterval(uiInterval);
     uiInterval = setInterval(() => {
         if (player && player.getCurrentTime && player.getDuration) {
