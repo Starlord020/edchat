@@ -31,7 +31,13 @@ io.on('connection', (socket) => {
         socket.username = username;
         socket.roomId = roomId;
 
-        room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false, isHost: room.hostId === socket.id };
+        room.users[socket.id] = { username: username, isMicOn: false, isCamOn: false };
+        
+        // Eğer odada kimse yoksa veya mevcut host çıkmışsa, giren kişi host olur
+        if (Object.keys(room.users).length === 1 || !room.users[room.hostId]) {
+            room.hostId = socket.id;
+        }
+        room.users[socket.id].isHost = (room.hostId === socket.id);
 
         let currentRealTime = room.time;
         if (room.isPlaying) currentRealTime += (Date.now() - room.updatedAt) / 1000;
