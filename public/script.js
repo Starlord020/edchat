@@ -23,10 +23,10 @@ const chatCloseBtn = document.getElementById('chat-close-btn');
 const chatPanel = document.getElementById('chat-panel');
 const unreadBadge = document.getElementById('unread-badge');
 let unreadCount = 0;
-
-chatToggleBtn.addEventListener('click', () => {
-    chatPanel.classList.toggle('chat-closed');
-    if (!chatPanel.classList.contains('chat-closed')) { unreadCount = 0; unreadBadge.classList.add('hidden'); }
+let dragHasMovedChat = false;
+chatToggleBtn.addEventListener('click', (e) => { 
+    if (dragHasMovedChat) return;
+    chatPanel.classList.remove('chat-closed'); unreadCount = 0; unreadBadge.classList.add('hidden'); 
 });
 chatCloseBtn.addEventListener('click', () => { chatPanel.classList.add('chat-closed'); });
 
@@ -502,3 +502,75 @@ function stopDrag() {
 
 document.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
 document.addEventListener('touchstart', startDrag, {passive: false}); document.addEventListener('touchmove', drag, {passive: false}); document.addEventListener('touchend', stopDrag);
+
+// --- DRAGGABLE CHAT BUBBLE ---
+let isDraggingChat = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let currentRight = 20; 
+let currentBottom = 75;
+
+chatToggleBtn.addEventListener("mousedown", startDragChat);
+chatToggleBtn.addEventListener("touchstart", startDragChat, {passive: false});
+
+function startDragChat(e) {
+    if (e.target.closest("#chat-toggle-btn") !== chatToggleBtn) return;
+    isDraggingChat = true;
+    dragHasMovedChat = false;
+    dragStartX = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
+    dragStartY = e.type.includes("mouse") ? e.clientY : e.touches[0].clientY;
+    
+    const rect = chatToggleBtn.getBoundingClientRect();
+    currentRight = window.innerWidth - rect.right;
+    currentBottom = window.innerHeight - rect.bottom;
+    
+    document.addEventListener("mousemove", dragChat);
+    document.addEventListener("touchmove", dragChat, {passive: false});
+    document.addEventListener("mouseup", endDragChat);
+    document.addEventListener("touchend", endDragChat);
+}
+
+function dragChat(e) {
+    if (!isDraggingChat) return;
+    const clientX = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
+    const clientY = e.type.includes("mouse") ? e.clientY : e.touches[0].clientY;
+    
+    const deltaX = dragStartX - clientX;
+    const deltaY = dragStartY - clientY;
+    
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        dragHasMovedChat = true;
+        if(e.cancelable) e.preventDefault();
+    }
+    
+    dragStartX = clientX;
+    dragStartY = clientY;
+    
+    currentRight += deltaX;
+    currentBottom += deltaY;
+    
+    currentRight = Math.max(10, Math.min(window.innerWidth - 70, currentRight));
+    currentBottom = Math.max(10, Math.min(window.innerHeight - 70, currentBottom));
+    
+    chatToggleBtn.style.right = `${currentRight}px`;
+    chatToggleBtn.style.bottom = `${currentBottom}px`;
+    
+    chatPanel.style.bottom = `${currentBottom + 70}px`;
+    if (currentRight > window.innerWidth / 2) {
+        const leftPos = window.innerWidth - currentRight - 60;
+        chatPanel.style.right = "auto";
+        chatPanel.style.left = `${Math.max(10, leftPos)}px`;
+    } else {
+        chatPanel.style.left = "auto";
+        chatPanel.style.right = `${currentRight}px`;
+    }
+}
+
+function endDragChat() {
+    isDraggingChat = false;
+    document.removeEventListener("mousemove", dragChat);
+    document.removeEventListener("touchmove", dragChat);
+    document.removeEventListener("mouseup", endDragChat);
+    document.removeEventListener("touchend", endDragChat);
+}
+
